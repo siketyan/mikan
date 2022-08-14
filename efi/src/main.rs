@@ -9,6 +9,7 @@ extern crate alloc;
 use alloc::format;
 use anyhow::{anyhow, Result};
 use core::fmt::Write;
+use elf_rs::{Elf, ElfFile};
 use uefi::prelude::*;
 use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo};
 use uefi::proto::media::file::{Directory, File, FileAttribute, FileInfo, FileMode, RegularFile};
@@ -35,7 +36,6 @@ macro_rules! println {
 }
 
 const KERNEL_ADDRESS: usize = 0x40000000;
-const KERNEL_ENTRYPOINT_ADDRESS: usize = KERNEL_ADDRESS + 0x1055c;
 
 type Entrypoint = extern "C" fn(*mut u8, usize) -> !;
 
@@ -174,7 +174,7 @@ impl Application {
         Ok(())
     }
 
-    fn load_kernel(&mut self, root_dir: &mut Directory) -> Result<()> {
+    fn load_kernel(&mut self, root_dir: &mut Directory) -> Result<usize> {
         let mut file = self.load_file(root_dir, "\\kernel.elf")?;
         let mut buffer = allocate_aligned::<FileInfo>(14);
         let info: &mut FileInfo = file
@@ -197,20 +197,24 @@ impl Application {
                 KERNEL_ADDRESS
             ))?;
 
-        file.read(unsafe {
+        let buf = unsafe {
             core::slice::from_raw_parts_mut(KERNEL_ADDRESS as *mut u8, kernel_size as usize)
-        })
-        .map_err(err!("Failed to read kernel from the file"))?;
+        };
+
+        file.read(buf)
+            .map_err(err!("Failed to read kernel from the file"))?;
 
         println!(
             "Loaded kernel to {:#x} ({} bytes)",
             KERNEL_ADDRESS, kernel_size
         )?;
 
-        Ok(())
+        Ok(Elf::from_bytes(buf)
+            .map_err(err!("Failed to read ELF file; unknown entrypoint"))?
+            .entry_point() as usize)
     }
 
-    fn boot(self, frame_buffer: &mut FrameBuffer) -> Result<()> {
+    fn boot(self, entry_point: usize, frame_buffer: &mut FrameBuffer) -> Result<()> {
         println!("Booting kernel, exiting boot services")?;
 
         // FIXME: Not working
@@ -222,7 +226,7 @@ impl Application {
         //     .map(|_| ())
         //     .map_err(|_| anyhow!("Could not exit boot services"))?;
 
-        (unsafe { core::mem::transmute::<_, Entrypoint>(KERNEL_ENTRYPOINT_ADDRESS) })(
+        (unsafe { core::mem::transmute::<_, Entrypoint>(entry_point) })(
             frame_buffer.as_mut_ptr(),
             frame_buffer.size(),
         )
@@ -253,9 +257,9 @@ impl Application {
         let mut frame_buffer = self.get_frame_buffer()?;
 
         self.fill_screen(&mut frame_buffer)?;
-        self.load_kernel(&mut root_dir)?;
 
-        self.boot(&mut frame_buffer)
+        self.load_kernel(&mut root_dir)
+            .and_then(|entry_point| self.boot(entry_point, &mut frame_buffer))
     }
 }
 
