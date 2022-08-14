@@ -27,6 +27,9 @@ macro_rules! err {
 }
 
 const KERNEL_ADDRESS: usize = 0x40000000;
+const KERNEL_ENTRYPOINT_ADDRESS: usize = KERNEL_ADDRESS + 24;
+
+type Entrypoint = extern "C" fn();
 
 struct WrappedFile {
     file: RegularFile,
@@ -144,7 +147,22 @@ impl Application {
         .map_err(err!())
     }
 
-    fn execute(&mut self) -> Result<()> {
+    fn boot(mut self) -> Result<()> {
+        writeln!(self.stdout(), "Booting kernel, exiting boot services").map_err(err!())?;
+
+        self.system_table
+            .exit_boot_services(
+                self.handle,
+                allocate_aligned::<MemoryDescriptor>(4096).as_mut(),
+            )
+            .map(|_| ())
+            .map_err(|_| anyhow!("Could not exit boot services"))?;
+
+        (unsafe { (KERNEL_ENTRYPOINT_ADDRESS as *mut Entrypoint).read() })();
+        Ok(())
+    }
+
+    fn execute(mut self) -> Result<()> {
         writeln!(self.system_table.stdout(), "Hello, world!").map_err(err!())?;
 
         let boot_services = self.system_table.boot_services();
@@ -164,10 +182,10 @@ impl Application {
             .open_volume()
             .map_err(err!("Failed to open a volume"))?;
 
-        self.save_memory_map(iter, &mut root_dir)
-            .map_err(err!("Failed to save memory map into the file"))?;
+        self.save_memory_map(iter, &mut root_dir)?;
+        self.load_kernel(&mut root_dir)?;
 
-        self.load_kernel(&mut root_dir)
+        self.boot()
     }
 }
 

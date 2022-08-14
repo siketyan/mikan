@@ -10,3 +10,4 @@ name = "kernel"
 path = "src/main.rs"
 
 [dependencies]
+aarch64 = "0.0.7"

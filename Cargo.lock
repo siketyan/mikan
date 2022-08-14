@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "aarch64"
+version = "0.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d48df31899ce44f6ca081b39bcf4f9913e4435e3ec4287283451f71f1577ab3"
+dependencies = [
+ "cortex-a",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -27,6 +36,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "cortex-a"
+version = "7.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f75db6964ed6748e88ff46f9aa209249a0aefe6b06d4b9e9ab820c867586d51a"
+dependencies = [
+ "tock-registers",
+]
+
+[[package]]
 name = "log"
 version = "0.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -47,6 +65,9 @@ dependencies = [
 [[package]]
 name = "mikan-kernel"
 version = "0.1.0"
+dependencies = [
+ "aarch64",
+]
 
 [[package]]
 name = "proc-macro2"
@@ -76,6 +97,12 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "tock-registers"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ee8fba06c1f4d0b396ef61a54530bb6b28f0dc61c38bc8bc5a5a48161e6282e"
 
 [[package]]
 name = "ucs2"
