@@ -11,7 +11,6 @@ use anyhow::{anyhow, Result};
 use core::fmt::Write;
 use uefi::prelude::*;
 use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo};
-use uefi::proto::console::text::Output;
 use uefi::proto::media::file::{Directory, File, FileAttribute, FileInfo, FileMode, RegularFile};
 use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType, SearchType};
 use uefi::CString16;
@@ -36,9 +35,9 @@ macro_rules! println {
 }
 
 const KERNEL_ADDRESS: usize = 0x40000000;
-const KERNEL_ENTRYPOINT_ADDRESS: usize = KERNEL_ADDRESS + 24;
+const KERNEL_ENTRYPOINT_ADDRESS: usize = KERNEL_ADDRESS + 0x1055c;
 
-type Entrypoint = extern "C" fn();
+type Entrypoint = extern "C" fn(*mut u8, usize) -> !;
 
 struct WrappedFile {
     file: RegularFile,
@@ -73,10 +72,6 @@ impl Application {
             handle,
             system_table,
         }
-    }
-
-    fn stdout(&mut self) -> &mut Output {
-        self.system_table.stdout()
     }
 
     fn load_file(&mut self, root_dir: &mut Directory, path: &str) -> Result<RegularFile> {
@@ -120,8 +115,7 @@ impl Application {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    fn fill_screen(&mut self) -> Result<()> {
+    fn get_frame_buffer<'a>(&mut self) -> Result<FrameBuffer<'a>> {
         let mut handles = allocate_uninit(16);
 
         self.system_table
@@ -170,6 +164,10 @@ impl Application {
             frame_buffer.size()
         )?;
 
+        Ok(frame_buffer)
+    }
+
+    fn fill_screen(&mut self, frame_buffer: &mut FrameBuffer) -> Result<()> {
         unsafe { core::slice::from_raw_parts_mut(frame_buffer.as_mut_ptr(), frame_buffer.size()) }
             .fill(0xff);
 
@@ -204,28 +202,30 @@ impl Application {
         })
         .map_err(err!("Failed to read kernel from the file"))?;
 
-        writeln!(
-            self.stdout(),
+        println!(
             "Loaded kernel to {:#x} ({} bytes)",
-            KERNEL_ADDRESS,
-            kernel_size
-        )
-        .map_err(err!())
+            KERNEL_ADDRESS, kernel_size
+        )?;
+
+        Ok(())
     }
 
-    fn boot(self) -> Result<()> {
+    fn boot(self, frame_buffer: &mut FrameBuffer) -> Result<()> {
         println!("Booting kernel, exiting boot services")?;
 
-        self.system_table
-            .exit_boot_services(
-                self.handle,
-                allocate_aligned::<MemoryDescriptor>(4096).as_mut(),
-            )
-            .map(|_| ())
-            .map_err(|_| anyhow!("Could not exit boot services"))?;
+        // FIXME: Not working
+        // self.system_table
+        //     .exit_boot_services(
+        //         self.handle,
+        //         allocate_aligned::<MemoryDescriptor>(4096).as_mut(),
+        //     )
+        //     .map(|_| ())
+        //     .map_err(|_| anyhow!("Could not exit boot services"))?;
 
-        (unsafe { (KERNEL_ENTRYPOINT_ADDRESS as *mut Entrypoint).read() })();
-        Ok(())
+        (unsafe { core::mem::transmute::<_, Entrypoint>(KERNEL_ENTRYPOINT_ADDRESS) })(
+            frame_buffer.as_mut_ptr(),
+            frame_buffer.size(),
+        )
     }
 
     fn execute(mut self) -> Result<()> {
@@ -249,10 +249,13 @@ impl Application {
             .map_err(err!("Failed to open a volume"))?;
 
         self.save_memory_map(iter, &mut root_dir)?;
-        self.fill_screen()?;
+
+        let mut frame_buffer = self.get_frame_buffer()?;
+
+        self.fill_screen(&mut frame_buffer)?;
         self.load_kernel(&mut root_dir)?;
 
-        self.boot()
+        self.boot(&mut frame_buffer)
     }
 }
 
