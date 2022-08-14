@@ -26,14 +26,14 @@ umount:
 	umount ./mnt
 
 .PHONY: build
-build: disk.img aavmf
+build: disk.img
 
 .PHONY: rebuild
 rebuild:
 	$(MAKE) -B build
 
 .PHONY: boot
-boot: build
+boot: build aavmf
 	qemu-system-aarch64 \
 		-machine virt \
 		-cpu cortex-a57 \
