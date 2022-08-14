@@ -45,6 +45,7 @@ boot: build aavmf
 		-m 512 \
 		-bios ./aavmf/QEMU_EFI.fd \
 		-drive 'if=virtio,file=./disk.img,format=raw' \
+		-device ramfb \
 		-monitor stdio
 
 .PHONY: reboot

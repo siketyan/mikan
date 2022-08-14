@@ -13,12 +13,11 @@ use uefi::prelude::*;
 use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo};
 use uefi::proto::console::text::Output;
 use uefi::proto::media::file::{Directory, File, FileAttribute, FileInfo, FileMode, RegularFile};
-use uefi::table::boot::{
-    AllocateType, MemoryDescriptor, MemoryType, OpenProtocolAttributes, OpenProtocolParams,
-};
+use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType, SearchType};
 use uefi::CString16;
+use uefi::Identify;
 
-use crate::buf::allocate_aligned;
+use crate::buf::{allocate_aligned, allocate_uninit};
 
 macro_rules! err {
     () => {
@@ -123,20 +122,30 @@ impl Application {
 
     #[allow(dead_code)]
     fn fill_screen(&mut self) -> Result<()> {
+        let mut handles = allocate_uninit(16);
+
+        self.system_table
+            .boot_services()
+            .locate_handle(
+                SearchType::ByProtocol(&GraphicsOutput::GUID),
+                Some(&mut handles),
+            )
+            .map_err(err!("Failed to locate GOP handle"))?;
+
+        let handle = handles
+            .into_iter()
+            .map(|h| unsafe { h.assume_init() })
+            .next()
+            .ok_or_else(|| anyhow!("No GOP handles available"))?;
+
+        #[allow(deprecated)]
         let gop: &mut GraphicsOutput = self
             .system_table
             .boot_services()
-            .open_protocol::<GraphicsOutput>(
-                OpenProtocolParams {
-                    handle: self.handle,
-                    agent: self.handle,
-                    controller: None,
-                },
-                OpenProtocolAttributes::Exclusive,
-            )
+            .handle_protocol::<GraphicsOutput>(handle)
             .map_err(err!("Failed to open graphics output protocol"))
             .and_then(|protocol| {
-                unsafe { protocol.interface.get().as_mut() }
+                unsafe { protocol.get().as_mut() }
                     .ok_or_else(|| anyhow!("Could not get the protocol"))
             })?;
 
@@ -240,8 +249,7 @@ impl Application {
             .map_err(err!("Failed to open a volume"))?;
 
         self.save_memory_map(iter, &mut root_dir)?;
-        // FIXME: Not working on aarch64
-        // self.fill_screen()?;
+        self.fill_screen()?;
         self.load_kernel(&mut root_dir)?;
 
         self.boot()
