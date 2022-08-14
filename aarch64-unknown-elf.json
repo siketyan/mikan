@@ -20,7 +20,7 @@
   "pre-link-args": {
     "ld": [
       "--entry=kernel_main",
-      "--image-base=0x100000",
+      "--image-base=0x40000000",
       "--static",
       "-z",
       "norelro"
