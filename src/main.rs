@@ -57,7 +57,7 @@ impl Application {
         memory_map.enumerate().try_for_each(|(i, descriptor)| {
             writeln!(
                 file,
-                "{:?}, {:?}, {:?}, {:?}, {:?}",
+                "{:?}, {:?}, {:#x}, {:?}, {:?}",
                 i, descriptor.ty, descriptor.phys_start, descriptor.page_count, descriptor.att
             )
         })
