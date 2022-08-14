@@ -44,7 +44,8 @@ boot: build aavmf
 		-cpu cortex-a57 \
 		-m 512 \
 		-bios ./aavmf/QEMU_EFI.fd \
-		-drive 'if=virtio,file=./disk.img,format=raw'
+		-drive 'if=virtio,file=./disk.img,format=raw' \
+		-monitor stdio
 
 .PHONY: reboot
 reboot:
