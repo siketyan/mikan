@@ -1,0 +1,35 @@
+{
+  "abi-return-struct-as-int": true,
+  "allows-weak-linkage": false,
+  "arch": "aarch64",
+  "data-layout": "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128",
+  "disable-redzone": true,
+  "emit-debug-gdb-scripts": false,
+  "exe-suffix": ".elf",
+  "executables": true,
+  "is-builtin": false,
+  "is-like-msvc": false,
+  "is-like-windows": false,
+  "linker": "ld.lld",
+  "linker-flavor": "ld",
+  "linker-is-gnu": true,
+  "llvm-target": "aarch64-elf",
+  "max-atomic-width": 64,
+  "os": "none",
+  "panic-strategy": "abort",
+  "pre-link-args": {
+    "ld": [
+      "--entry=kernel_main",
+      "--image-base=0x100000",
+      "--static",
+      "-z",
+      "norelro"
+    ]
+  },
+  "singlethread": true,
+  "split-debuginfo": "packed",
+  "stack-probes": {
+    "kind": "call"
+  },
+  "target-pointer-width": "64"
+}

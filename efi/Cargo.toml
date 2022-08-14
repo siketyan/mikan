@@ -1,0 +1,15 @@
+[package]
+name = "mikan-efi"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "bootx64"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { version = "1.0", default-features = false }
+uefi = { version = "0.16", features = ["exts"] }
+uefi-services = "0.13"

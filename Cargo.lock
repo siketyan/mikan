@@ -36,13 +36,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "mikan"
+name = "mikan-efi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "uefi",
  "uefi-services",
 ]
+
+[[package]]
+name = "mikan-kernel"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro2"

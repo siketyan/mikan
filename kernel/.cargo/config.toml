@@ -1,0 +1,9 @@
+[build]
+target = "../aarch64-unknown-elf.json"
+
+[target.aarch64-unknown-elf]
+linker = "mold"
+
+[unstable]
+build-std = ["core", "compiler_builtins", "alloc"]
+build-std-features = ["compiler-builtins-mem"]
