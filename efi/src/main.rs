@@ -217,14 +217,11 @@ impl Application {
     fn boot(self, entry_point: usize, frame_buffer: &mut FrameBuffer) -> Result<()> {
         println!("Booting kernel, exiting boot services")?;
 
-        // FIXME: Not working
-        // self.system_table
-        //     .exit_boot_services(
-        //         self.handle,
-        //         allocate_aligned::<MemoryDescriptor>(4096).as_mut(),
-        //     )
-        //     .map(|_| ())
-        //     .map_err(|_| anyhow!("Could not exit boot services"))?;
+        let mut buf = allocate_aligned::<MemoryDescriptor>(4096);
+        self.system_table
+            .exit_boot_services(self.handle, &mut buf)
+            .map(|_| ())
+            .map_err(|_| anyhow!("Could not exit boot services"))?;
 
         (unsafe { core::mem::transmute::<_, Entrypoint>(entry_point) })(
             frame_buffer.as_mut_ptr(),
