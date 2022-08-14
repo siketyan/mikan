@@ -10,9 +10,12 @@ use alloc::format;
 use anyhow::{anyhow, Result};
 use core::fmt::Write;
 use uefi::prelude::*;
+use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo};
 use uefi::proto::console::text::Output;
 use uefi::proto::media::file::{Directory, File, FileAttribute, FileInfo, FileMode, RegularFile};
-use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType};
+use uefi::table::boot::{
+    AllocateType, MemoryDescriptor, MemoryType, OpenProtocolAttributes, OpenProtocolParams,
+};
 use uefi::CString16;
 
 use crate::buf::allocate_aligned;
@@ -23,6 +26,13 @@ macro_rules! err {
     };
     ($msg: literal $(, $v: expr)*) => {
         |e| anyhow!("{}: {:?}", format!($msg $(, $v)*), e)
+    };
+}
+
+macro_rules! println {
+    ($($t: tt)*) => {
+        writeln!(unsafe { uefi_services::system_table().as_mut() }.stdout(), $($t)*)
+            .map_err(err!())
     };
 }
 
@@ -79,7 +89,7 @@ impl Application {
                 FileMode::CreateReadWrite,
                 FileAttribute::empty(),
             )
-            .map_err(|_| anyhow!("Failed to create a file"))?
+            .map_err(err!("Failed to create a file"))?
             .into_regular_file()
             .ok_or_else(|| anyhow!("The file was not a regular file"))
     }
@@ -107,7 +117,54 @@ impl Application {
 
         file.close();
 
-        writeln!(self.stdout(), "Saved the memory map to \\memmap").map_err(err!())
+        println!("Saved the memory map to \\memmap")?;
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    fn fill_screen(&mut self) -> Result<()> {
+        let gop: &mut GraphicsOutput = self
+            .system_table
+            .boot_services()
+            .open_protocol::<GraphicsOutput>(
+                OpenProtocolParams {
+                    handle: self.handle,
+                    agent: self.handle,
+                    controller: None,
+                },
+                OpenProtocolAttributes::Exclusive,
+            )
+            .map_err(err!("Failed to open graphics output protocol"))
+            .and_then(|protocol| {
+                unsafe { protocol.interface.get().as_mut() }
+                    .ok_or_else(|| anyhow!("Could not get the protocol"))
+            })?;
+
+        let mode_info: ModeInfo = gop.current_mode_info();
+        let (width, height) = mode_info.resolution();
+
+        println!(
+            "Resolution: {}x{}, Pixel Format: {:?}, {} pixels/line",
+            width,
+            height,
+            mode_info.pixel_format(),
+            mode_info.stride()
+        )?;
+
+        let mut frame_buffer: FrameBuffer = gop.frame_buffer();
+        let frame_buffer_ptr = frame_buffer.as_mut_ptr() as usize;
+
+        println!(
+            "Frame Buffer: {:#x} - {:#x}, Size: {} bytes",
+            frame_buffer_ptr,
+            frame_buffer_ptr + frame_buffer.size(),
+            frame_buffer.size()
+        )?;
+
+        unsafe { core::slice::from_raw_parts_mut(frame_buffer.as_mut_ptr(), frame_buffer.size()) }
+            .fill(0xff);
+
+        Ok(())
     }
 
     fn load_kernel(&mut self, root_dir: &mut Directory) -> Result<()> {
@@ -118,7 +175,7 @@ impl Application {
             .map_err(|e| anyhow!("Failed to get information of the file: {:?}", e))?;
         let kernel_size = info.file_size();
 
-        writeln!(self.stdout(), "Kernel size is {} bytes", kernel_size).map_err(err!())?;
+        println!("Kernel size is {} bytes", kernel_size)?;
 
         self.system_table
             .boot_services()
@@ -147,8 +204,8 @@ impl Application {
         .map_err(err!())
     }
 
-    fn boot(mut self) -> Result<()> {
-        writeln!(self.stdout(), "Booting kernel, exiting boot services").map_err(err!())?;
+    fn boot(self) -> Result<()> {
+        println!("Booting kernel, exiting boot services")?;
 
         self.system_table
             .exit_boot_services(
@@ -163,7 +220,7 @@ impl Application {
     }
 
     fn execute(mut self) -> Result<()> {
-        writeln!(self.system_table.stdout(), "Hello, world!").map_err(err!())?;
+        println!("Hello, world!")?;
 
         let boot_services = self.system_table.boot_services();
 
@@ -183,6 +240,8 @@ impl Application {
             .map_err(err!("Failed to open a volume"))?;
 
         self.save_memory_map(iter, &mut root_dir)?;
+        // FIXME: Not working on aarch64
+        // self.fill_screen()?;
         self.load_kernel(&mut root_dir)?;
 
         self.boot()
