@@ -35,6 +35,13 @@ macro_rules! println {
     };
 }
 
+macro_rules! eprintln {
+    ($($t: tt)*) => {
+        writeln!(unsafe { uefi_services::system_table().as_mut() }.stderr(), $($t)*)
+            .unwrap_or(())
+    };
+}
+
 const KERNEL_ADDRESS: usize = 0x40000000;
 
 type Entrypoint = extern "C" fn(*mut u8, usize) -> !;
@@ -262,19 +269,16 @@ impl Application {
 
 fn try_main(handle: Handle, mut system_table: SystemTable<Boot>) -> Result<()> {
     uefi_services::init(&mut system_table).map_err(err!("Failed to initialise UEFI services"))?;
-
-    Application::new(handle, system_table).execute()?;
-
-    #[allow(clippy::empty_loop)]
-    loop {}
+    Application::new(handle, system_table).execute()
 }
 
 #[entry]
 fn main(handle: Handle, system_table: SystemTable<Boot>) -> Status {
-    match try_main(handle, system_table) {
-        Ok(_) => Status::SUCCESS,
-        Err(e) => {
-            panic!("{}", e);
-        }
+    if let Err(e) = try_main(handle, system_table) {
+        eprintln!("ERROR: {}", e);
+    };
+
+    loop {
+        aarch64::instructions::halt();
     }
 }

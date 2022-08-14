@@ -73,6 +73,7 @@ dependencies = [
 name = "mikan-efi"
 version = "0.1.0"
 dependencies = [
+ "aarch64",
  "anyhow",
  "elf_rs",
  "uefi",
