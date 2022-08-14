@@ -2,7 +2,7 @@ source.deb:
 	curl -sSL http://ftp.jp.debian.org/debian/pool/main/e/edk2/qemu-efi-aarch64_2022.05-2_all.deb > source.deb
 
 data.tar.xz: source.deb
-	ar -x ./sources.deb
+	ar -x ./source.deb
 
 usr: data.tar.xz
 	tar -xf ./data.tar.xz
