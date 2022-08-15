@@ -20,6 +20,7 @@ jobs:
           default: true
           override: true
           components: rust-src,rustfmt,clippy
+          target: aarch64-unknown-linux-gnu
 
       - uses: actions/cache@v3
         with:
@@ -46,4 +47,4 @@ jobs:
         run: cargo clippy
 
       - name: Tests
-        run: cargo test --workspace --exclude mikan-efi
+        run: cargo test --workspace --exclude mikan-efi --target aarch64-unknown-linux-gnu
