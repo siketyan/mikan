@@ -10,10 +10,13 @@ mnt:
 	mkdir -p ./mnt
 	$(MOUNT)
 
+resources:
+	$(MAKE) -C resources
+
 target/aarch64-unknown-uefi/bootx64.efi:
 	cd efi && cargo build
 
-target/aarch64-unknown-elf/kernel.elf:
+target/aarch64-unknown-elf/kernel.elf: resources
 	cd kernel && cargo build
 
 disk.img: target/aarch64-unknown-uefi/bootx64.efi target/aarch64-unknown-elf/kernel.elf
