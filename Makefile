@@ -10,8 +10,11 @@ mnt:
 	mkdir -p ./mnt
 	$(MOUNT)
 
-resources:
+resources/fonts/shinonome/shnm8x16a.bdf:
 	$(MAKE) -C resources
+
+.PHONY: resources
+resources: resources/fonts/shinonome/shnm8x16a.bdf
 
 target/aarch64-unknown-uefi/bootx64.efi:
 	cd efi && cargo build
