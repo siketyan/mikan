@@ -38,11 +38,11 @@ jobs:
 
       - name: Install dependencies
         if: ${{ matrix.runner == 'ubuntu-22.04' }}
-        run: sudo apt install mold
+        run: sudo apt install mold qemu
 
       - name: Install dependencies
         if: ${{ matrix.runner == 'macos-12' }}
-        run: brew install dosfstools mold
+        run: brew install dosfstools mold qemu
 
       - name: Build image
         run: make disk.img
