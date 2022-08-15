@@ -45,6 +45,8 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     )
     .ok();
 
+    (0..30).try_for_each(|i| writeln!(c, "line {}", i)).ok();
+
     loop {
         aarch64::instructions::halt();
     }
