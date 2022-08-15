@@ -8,8 +8,9 @@ extern crate alloc;
 
 use alloc::format;
 use anyhow::{anyhow, Result};
+use core::cmp::{max, min};
 use core::fmt::Write;
-use elf_rs::{Elf, ElfFile};
+use elf_rs::{Elf, ElfFile, ProgramType};
 use mikan_core::{Entrypoint, FrameBufferConfig, KernelArgs};
 use uefi::prelude::*;
 use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo, PixelFormat};
@@ -195,16 +196,35 @@ impl Application {
         let info: &mut FileInfo = file
             .get_info(&mut buffer)
             .map_err(|e| anyhow!("Failed to get information of the file: {:?}", e))?;
-        let kernel_size = info.file_size();
+        let kernel_size = info.file_size() as usize;
 
         println!("Kernel size is {} bytes", kernel_size)?;
+
+        let buf = self
+            .system_table
+            .boot_services()
+            .allocate_pool(MemoryType::LOADER_DATA, kernel_size)
+            .map(|ptr| unsafe { core::slice::from_raw_parts_mut(ptr, kernel_size) })
+            .map_err(err!("Failed to allocate {} bytes temporary", kernel_size))?;
+
+        file.read(buf)
+            .map_err(err!("Failed to read kernel from the file"))?;
+
+        let elf = Elf::from_bytes(buf).map_err(err!("Failed to read ELF file"))?;
+        let entry_point = elf.entry_point() as usize;
+        let (first, last) = elf
+            .program_header_iter()
+            .filter(|h| h.ph_type() == ProgramType::LOAD)
+            .fold((u64::MAX, 0), |(first, last), h| {
+                (min(first, h.vaddr()), max(last, h.vaddr() + h.memsz()))
+            });
 
         self.system_table
             .boot_services()
             .allocate_pages(
                 AllocateType::Address(KERNEL_ADDRESS),
                 MemoryType::LOADER_DATA,
-                ((kernel_size + 0xfff) / 0x1000) as usize,
+                ((last - first + 0xfff) / 0x1000) as usize,
             )
             .map_err(err!(
                 "Failed to allocate {} bytes at {:#x}",
@@ -212,21 +232,32 @@ impl Application {
                 KERNEL_ADDRESS
             ))?;
 
-        let buf = unsafe {
-            core::slice::from_raw_parts_mut(KERNEL_ADDRESS as *mut u8, kernel_size as usize)
-        };
+        elf.program_header_iter()
+            .filter(|h| h.ph_type() == ProgramType::LOAD)
+            .for_each(|h| {
+                let offset = h.offset() as usize;
+                let memory_size = h.memsz() as usize;
+                let file_size = h.filesz() as usize;
+                let diff = memory_size - file_size;
 
-        file.read(buf)
-            .map_err(err!("Failed to read kernel from the file"))?;
+                unsafe { core::slice::from_raw_parts_mut(h.vaddr() as *mut u8, memory_size) }
+                    .copy_from_slice(&buf[offset..offset + file_size]);
+
+                unsafe {
+                    core::slice::from_raw_parts_mut(
+                        (h.vaddr() as usize + memory_size) as *mut u8,
+                        diff,
+                    )
+                }
+                .fill(0);
+            });
 
         println!(
             "Loaded kernel to {:#x} ({} bytes)",
             KERNEL_ADDRESS, kernel_size
         )?;
 
-        Ok(Elf::from_bytes(buf)
-            .map_err(err!("Failed to read ELF file; unknown entrypoint"))?
-            .entry_point() as usize)
+        Ok(entry_point)
     }
 
     fn boot(self, entry_point: usize, frame_buffer: FrameBufferConfig) -> Result<()> {
