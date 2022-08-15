@@ -174,7 +174,7 @@ impl Application {
             buf: unsafe {
                 core::slice::from_raw_parts_mut(frame_buffer.as_mut_ptr(), frame_buffer.size())
             },
-            pixels_per_scan_line: 0,
+            pixels_per_scan_line: mode_info.stride(),
             width,
             height,
             pixel_format: match mode_info.pixel_format() {

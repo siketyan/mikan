@@ -1,16 +1,18 @@
-#![no_main]
-#![no_std]
+#![cfg_attr(not(test), no_main)]
+#![cfg_attr(not(test), no_std)]
 #![feature(slice_as_chunks)]
 
+#[cfg(not(test))]
 use core::panic::PanicInfo;
 use mikan_core::{FrameBufferConfig, KernelArgs, PixelFormat};
 
 #[panic_handler]
+#[cfg(not(test))]
 fn panic(_info: &PanicInfo) -> ! {
     todo!()
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct Color {
     pub r: u8,
     pub g: u8,
@@ -31,8 +33,29 @@ impl Color {
     }
 }
 
+impl From<u32> for Color {
+    fn from(value: u32) -> Self {
+        Self::new(
+            (value >> 16 & 0xFF) as u8,
+            (value >> 8 & 0xFF) as u8,
+            (value & 0xFF) as u8,
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Color;
+
+    #[test]
+    fn color_from_rgb() {
+        assert_eq!(Color::new(0x12, 0x34, 0x56), Color::from(0x123456));
+    }
+}
+
 struct Pixel<'a> {
     buf: &'a mut [u8; 4],
+    position: Position,
     pixel_format: PixelFormat,
 }
 
@@ -42,7 +65,7 @@ impl<'a> Pixel<'a> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 struct Position {
     x: usize,
     y: usize,
@@ -51,8 +74,35 @@ struct Position {
 impl Position {
     fn from_raw_parts(index: usize, pixels_per_scan_line: usize) -> Self {
         Self {
-            x: index,
-            y: pixels_per_scan_line,
+            x: index % pixels_per_scan_line,
+            y: index / pixels_per_scan_line,
+        }
+    }
+
+    fn into_raw_parts(self, pixels_per_scan_line: usize) -> usize {
+        self.y * pixels_per_scan_line + self.x
+    }
+}
+
+impl From<(usize, usize)> for Position {
+    fn from((x, y): (usize, usize)) -> Self {
+        Self { x, y }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Region {
+    position: Position,
+    width: usize,
+    height: usize,
+}
+
+impl Region {
+    fn new(position: Position, width: usize, height: usize) -> Self {
+        Self {
+            position,
+            width,
+            height,
         }
     }
 }
@@ -63,33 +113,50 @@ struct FrameBuffer<'a> {
 
 impl<'a> FrameBuffer<'a> {
     fn pixels(&mut self) -> impl Iterator<Item = Pixel> {
+        let pixels_per_scan_line = self.config.pixels_per_scan_line;
+        let pixel_format = self.config.pixel_format;
         unsafe { self.config.buf.as_chunks_unchecked_mut() }
             .iter_mut()
-            .map(|mut buf| Pixel {
+            .enumerate()
+            .map(move |(i, buf)| Pixel {
                 buf,
-                pixel_format: self.config.pixel_format,
+                position: Position::from_raw_parts(i, pixels_per_scan_line),
+                pixel_format,
             })
     }
 
-    fn at(&mut self, Position { x, y }: Position) -> Option<Pixel> {
-        let position = self.config.pixels_per_scan_line * y + x;
-        self.pixels().nth(position)
+    fn at(&mut self, position: Position) -> Option<Pixel> {
+        let index = position.into_raw_parts(self.config.pixels_per_scan_line) * 4;
+        let pixel_format = self.config.pixel_format;
+
+        Some(Pixel {
+            buf: (&mut self.config.buf[index..index + 4]).try_into().unwrap(),
+            position,
+            pixel_format,
+        })
     }
 
     fn fill(&mut self, color: Color) {
-        self.pixels().for_each(|mut p| {
-            p.write(color);
-        });
+        self.pixels().for_each(|mut p| p.write(color));
+    }
+
+    fn fill_in(&mut self, region: Region, color: Color) {
+        let Position { x, y } = region.position;
+        for y in y..(y + region.height) {
+            for x in x..(x + region.width) {
+                if let Some(mut p) = self.at(Position { x, y }) {
+                    p.write(color);
+                }
+            }
+        }
     }
 
     fn fill_by<F>(&mut self, f: F)
     where
-        F: Fn(Position, usize) -> Color,
+        F: Fn(Position) -> Color,
     {
-        let pixels_per_scan_line = self.config.pixels_per_scan_line;
-
-        self.pixels().enumerate().for_each(|(i, mut p)| {
-            p.write(f(Position::from_raw_parts(i, pixels_per_scan_line), i));
+        self.pixels().for_each(|mut p| {
+            p.write(f(p.position));
         });
     }
 }
@@ -105,20 +172,11 @@ impl<'a> From<FrameBufferConfig<'a>> for FrameBuffer<'a> {
 extern "C" fn kernel_main(args: KernelArgs) -> ! {
     let mut frame_buffer = FrameBuffer::from(args.frame_buffer);
 
-    frame_buffer.fill(Color::new(0, 0, 0xFF));
-    frame_buffer.fill_by(|p, _| {
-        let bytes = p.x.to_le_bytes();
-        Color::new(bytes[0], bytes[1], bytes[2])
-    });
-
-    // frame_buffer
-    //     .config
-    //     .buf
-    //     .iter_mut()
-    //     .enumerate()
-    //     .for_each(|(i, p)| {
-    //         *p = (i % 256) as u8;
-    //     });
+    frame_buffer.fill(Color::from(0xFFFFFF));
+    frame_buffer.fill_in(
+        Region::new((100, 100).into(), 200, 100),
+        Color::from(0x00FF00),
+    );
 
     loop {
         aarch64::instructions::halt();
