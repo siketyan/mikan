@@ -178,8 +178,8 @@ impl Application {
             width,
             height,
             pixel_format: match mode_info.pixel_format() {
-                PixelFormat::Rgb => mikan_core::PixelFormat::RGBResv8BitPerColor,
-                PixelFormat::Bgr => mikan_core::PixelFormat::BGRResv8BitPerColor,
+                PixelFormat::Rgb => mikan_core::PixelFormat::RgbResv8BitPerColor,
+                PixelFormat::Bgr => mikan_core::PixelFormat::BgrResv8BitPerColor,
                 _ => return Err(anyhow!("Unknown pixel format")),
             },
         })
