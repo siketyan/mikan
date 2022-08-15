@@ -12,6 +12,8 @@ fn panic(_info: &PanicInfo) -> ! {
     todo!()
 }
 
+const PIXEL_SIZE: usize = 4;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct Color {
     pub r: u8,
@@ -24,7 +26,7 @@ impl Color {
         Self { r, g, b }
     }
 
-    fn into_bytes(self, pixel_format: PixelFormat) -> [u8; 4] {
+    fn into_bytes(self, pixel_format: PixelFormat) -> [u8; PIXEL_SIZE] {
         let Self { r, g, b } = self;
         match pixel_format {
             PixelFormat::RgbResv8BitPerColor => [r, g, b, 0],
@@ -54,7 +56,7 @@ mod tests {
 }
 
 struct Pixel<'a> {
-    buf: &'a mut [u8; 4],
+    buf: &'a mut [u8; PIXEL_SIZE],
     position: Position,
     pixel_format: PixelFormat,
 }
@@ -81,6 +83,10 @@ impl Position {
 
     fn into_raw_parts(self, pixels_per_scan_line: usize) -> usize {
         self.y * pixels_per_scan_line + self.x
+    }
+
+    fn into_offset(self, pixels_per_scan_line: usize) -> usize {
+        self.into_raw_parts(pixels_per_scan_line) * PIXEL_SIZE
     }
 }
 
@@ -126,11 +132,13 @@ impl<'a> FrameBuffer<'a> {
     }
 
     fn at(&mut self, position: Position) -> Option<Pixel> {
-        let index = position.into_raw_parts(self.config.pixels_per_scan_line) * 4;
+        let offset = position.into_offset(self.config.pixels_per_scan_line);
         let pixel_format = self.config.pixel_format;
 
         Some(Pixel {
-            buf: (&mut self.config.buf[index..index + 4]).try_into().unwrap(),
+            buf: (&mut self.config.buf[offset..offset + PIXEL_SIZE])
+                .try_into()
+                .ok()?,
             position,
             pixel_format,
         })
