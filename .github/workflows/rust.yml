@@ -37,16 +37,12 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Lint (EFI)
-        uses: actions-rs/clippy-check@v1
         working-directory: ./efi
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo clippy
 
       - name: Lint (Kernel)
-        uses: actions-rs/clippy-check@v1
         working-directory: ./kernel
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo clippy
 
       - name: Tests (EFI)
         working-directory: ./efi
