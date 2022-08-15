@@ -6,6 +6,8 @@ pub(crate) mod fonts;
 pub(crate) mod frame_buffer;
 pub(crate) mod text;
 
+pub(crate) use colors::Colors;
+
 const PIXEL_SIZE: usize = 4;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -70,6 +72,11 @@ pub(crate) struct Position {
 }
 
 impl Position {
+    #[inline]
+    pub(crate) fn zero() -> Self {
+        (0, 0).into()
+    }
+
     fn from_raw_parts(index: usize, pixels_per_scan_line: usize) -> Self {
         Self {
             x: index % pixels_per_scan_line,

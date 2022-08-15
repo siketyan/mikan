@@ -1,5 +1,7 @@
+use core::fmt::Write;
+
 use crate::graphics::fonts::{Font, Shinonome};
-use crate::graphics::{Canvas, Color, Position};
+use crate::graphics::{Canvas, Color, Colors, Position};
 
 const FONT_HEIGHT: usize = 16;
 const FONT_WIDTH: usize = 8;
@@ -33,9 +35,58 @@ pub(crate) trait TextWriter<'a>: Canvas<'a> {
         })
     }
 
-    fn write_string(&mut self, position: Position, string: &str, color: Color) {
-        self.write_chars(position, string.chars(), color)
+    fn write_string(&mut self, position: Position, string: &str, color: Color) -> Position {
+        string
+            .split('\n')
+            .enumerate()
+            .fold(position, |mut p, (i, line)| {
+                p = (if i > 0 { 0 } else { p.x }, p.y + i * FONT_HEIGHT).into();
+                self.write_chars(p, line.chars(), color);
+                p + (line.chars().count() * FONT_WIDTH, 0).into()
+            })
     }
 }
 
 impl<'a, T> TextWriter<'a> for T where T: Canvas<'a> {}
+
+pub(crate) struct BufTextWriter<'a, W> {
+    writer: &'a mut W,
+    position: Position,
+    color: Color,
+}
+
+impl<'a, W> BufTextWriter<'a, W> {
+    pub(crate) fn new(writer: &'a mut W) -> Self {
+        Self {
+            writer,
+            position: Position::zero(),
+            color: Colors::black(),
+        }
+    }
+
+    pub(crate) fn with_position<P>(mut self, position: P) -> Self
+    where
+        P: Into<Position>,
+    {
+        self.position = position.into();
+        self
+    }
+
+    pub(crate) fn with_color<C>(mut self, color: C) -> Self
+    where
+        C: Into<Color>,
+    {
+        self.color = color.into();
+        self
+    }
+}
+
+impl<'a, W> Write for BufTextWriter<'a, W>
+where
+    W: TextWriter<'a>,
+{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.position = self.writer.write_string(self.position, s, self.color);
+        Ok(())
+    }
+}

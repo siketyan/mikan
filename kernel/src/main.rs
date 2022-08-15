@@ -6,14 +6,14 @@
 
 mod graphics;
 
+use core::fmt::Write;
 #[cfg(not(test))]
 use core::panic::PanicInfo;
 use mikan_core::KernelArgs;
 
-use crate::graphics::colors::Colors;
 use crate::graphics::frame_buffer::FrameBuffer;
-use crate::graphics::text::TextWriter;
-use crate::graphics::{Canvas, Region};
+use crate::graphics::text::{BufTextWriter, TextWriter};
+use crate::graphics::{Canvas, Colors, Region};
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -30,6 +30,12 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     frame_buffer.fill_in(Region::new((100, 100).into(), 200, 100), Colors::green());
     frame_buffer.write_chars((0, 50).into(), '!'..='~', Colors::black());
     frame_buffer.write_string((0, 66).into(), "Hello, world!", Colors::blue());
+
+    let mut w = BufTextWriter::new(&mut frame_buffer)
+        .with_position((0, 82))
+        .with_color(Colors::black());
+
+    writeln!(w, "1 + 2 = {}", 1 + 2).ok();
 
     loop {
         aarch64::instructions::halt();
