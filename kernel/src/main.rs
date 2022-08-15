@@ -11,6 +11,7 @@ use core::panic::PanicInfo;
 use mikan_core::KernelArgs;
 
 use crate::graphics::frame_buffer::FrameBuffer;
+use crate::graphics::text::TextWriter;
 use crate::graphics::{Canvas, Color, Region};
 
 #[panic_handler]
@@ -29,6 +30,9 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
         Region::new((100, 100).into(), 200, 100),
         Color::from(0x00FF00),
     );
+
+    frame_buffer.write_ascii((50, 50).into(), 'A', 0x000000.into());
+    frame_buffer.write_ascii((58, 50).into(), 'A', 0x000000.into());
 
     loop {
         aarch64::instructions::halt();

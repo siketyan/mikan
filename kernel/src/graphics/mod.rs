@@ -1,6 +1,8 @@
+use core::ops::Add;
 use mikan_core::PixelFormat;
 
 pub(crate) mod frame_buffer;
+pub(crate) mod text;
 
 const PIXEL_SIZE: usize = 4;
 
@@ -79,6 +81,17 @@ impl Position {
 
     fn into_offset(self, pixels_per_scan_line: usize) -> usize {
         self.into_raw_parts(pixels_per_scan_line) * PIXEL_SIZE
+    }
+}
+
+impl Add for Position {
+    type Output = Self;
+
+    fn add(self, Self { x, y }: Self) -> Self::Output {
+        Self {
+            x: self.x + x,
+            y: self.y + y,
+        }
     }
 }
 
