@@ -32,7 +32,8 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     );
 
     frame_buffer.write_ascii((50, 50).into(), 'A', 0x000000.into());
-    frame_buffer.write_ascii((58, 50).into(), 'A', 0x000000.into());
+    frame_buffer.write_ascii((58, 50).into(), 'B', 0x000000.into());
+    frame_buffer.write_ascii((66, 50).into(), 'C', 0x000000.into());
 
     loop {
         aarch64::instructions::halt();

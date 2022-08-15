@@ -41,9 +41,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
     })?;
 
+    writeln!(file, "pub(crate) struct Shinonome;")?;
     writeln!(
         file,
-        "pub(crate) fn glyph(c: char) -> Option<&'static [u8]> {{ Some(match c {{"
+        "impl super::Font for Shinonome {{\
+        fn glyph(c: char) -> Option<&'static [u8]> {{\
+        Some(match c {{"
     )?;
 
     glyphs.iter().try_for_each(|(char, glyph)| {
@@ -60,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     })?;
 
     writeln!(file, "_ => return None,")?;
-    writeln!(file, "}}) }}")?;
+    writeln!(file, "}})}}}}")?;
 
     Ok(())
 }
