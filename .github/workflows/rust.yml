@@ -45,10 +45,5 @@ jobs:
         working-directory: ./kernel
         run: cargo clippy
 
-      - name: Tests (EFI)
-        working-directory: ./efi
-        run: cargo test
-
-      - name: Tests (Kernel)
-        working-directory: ./kernel
-        run: cargo test
+      - name: Tests
+        run: cargo test --workspace --exclude mikan-efi
