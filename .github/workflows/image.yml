@@ -38,7 +38,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ matrix.runner == 'macos-12' }}
-        run: brew install dosfsutils mold
+        run: brew install dosfstools mold
 
       - name: Build image
         run: make disk.img
