@@ -1,6 +1,7 @@
 use core::ops::Add;
 use mikan_core::PixelFormat;
 
+pub(crate) mod colors;
 pub(crate) mod fonts;
 pub(crate) mod frame_buffer;
 pub(crate) mod text;

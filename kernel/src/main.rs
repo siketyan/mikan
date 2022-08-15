@@ -10,9 +10,10 @@ mod graphics;
 use core::panic::PanicInfo;
 use mikan_core::KernelArgs;
 
+use crate::graphics::colors::Colors;
 use crate::graphics::frame_buffer::FrameBuffer;
 use crate::graphics::text::TextWriter;
-use crate::graphics::{Canvas, Color, Region};
+use crate::graphics::{Canvas, Region};
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -25,15 +26,10 @@ fn panic(_info: &PanicInfo) -> ! {
 extern "C" fn kernel_main(args: KernelArgs) -> ! {
     let mut frame_buffer = FrameBuffer::from(args.frame_buffer);
 
-    frame_buffer.fill(Color::from(0xFFFFFF));
-    frame_buffer.fill_in(
-        Region::new((100, 100).into(), 200, 100),
-        Color::from(0x00FF00),
-    );
-
-    frame_buffer.write_ascii((50, 50).into(), 'A', 0x000000.into());
-    frame_buffer.write_ascii((58, 50).into(), 'B', 0x000000.into());
-    frame_buffer.write_ascii((66, 50).into(), 'C', 0x000000.into());
+    frame_buffer.fill(Colors::white());
+    frame_buffer.fill_in(Region::new((100, 100).into(), 200, 100), Colors::green());
+    frame_buffer.write_chars((0, 50).into(), '!'..='~', Colors::black());
+    frame_buffer.write_string((0, 66).into(), "Hello, world!", Colors::blue());
 
     loop {
         aarch64::instructions::halt();
