@@ -47,8 +47,8 @@ jobs:
 
       - name: Tests (EFI)
         working-directory: ./efi
-        run: cargo test --doc
+        run: cargo test
 
       - name: Tests (Kernel)
         working-directory: ./kernel
-        run: cargo test --doc
+        run: cargo test
