@@ -1,16 +1,8 @@
 [package]
-name = "mikan-kernel"
+name = "mikan-core"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "kernel"
-path = "src/main.rs"
-
 [dependencies]
-aarch64 = "0.0.7"
-
-[dependencies.mikan-core]
-path = "../core"

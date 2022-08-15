@@ -70,12 +70,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "mikan-core"
+version = "0.1.0"
+
+[[package]]
 name = "mikan-efi"
 version = "0.1.0"
 dependencies = [
  "aarch64",
  "anyhow",
  "elf_rs",
+ "mikan-core",
  "uefi",
  "uefi-services",
 ]
@@ -85,6 +90,7 @@ name = "mikan-kernel"
 version = "0.1.0"
 dependencies = [
  "aarch64",
+ "mikan-core",
 ]
 
 [[package]]

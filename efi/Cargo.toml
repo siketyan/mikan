@@ -15,3 +15,6 @@ anyhow = { version = "1.0", default-features = false }
 elf_rs = "0.2"
 uefi = { version = "0.16", features = ["exts"] }
 uefi-services = "0.13"
+
+[dependencies.mikan-core]
+path = "../core"
