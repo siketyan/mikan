@@ -1,6 +1,12 @@
+use core::ops::Add;
 use mikan_core::PixelFormat;
 
+pub(crate) mod colors;
+pub(crate) mod fonts;
 pub(crate) mod frame_buffer;
+pub(crate) mod text;
+
+pub(crate) use colors::Colors;
 
 const PIXEL_SIZE: usize = 4;
 
@@ -66,6 +72,11 @@ pub(crate) struct Position {
 }
 
 impl Position {
+    #[inline]
+    pub(crate) fn zero() -> Self {
+        (0, 0).into()
+    }
+
     fn from_raw_parts(index: usize, pixels_per_scan_line: usize) -> Self {
         Self {
             x: index % pixels_per_scan_line,
@@ -79,6 +90,17 @@ impl Position {
 
     fn into_offset(self, pixels_per_scan_line: usize) -> usize {
         self.into_raw_parts(pixels_per_scan_line) * PIXEL_SIZE
+    }
+}
+
+impl Add for Position {
+    type Output = Self;
+
+    fn add(self, Self { x, y }: Self) -> Self::Output {
+        Self {
+            x: self.x + x,
+            y: self.y + y,
+        }
     }
 }
 
@@ -102,6 +124,40 @@ impl Region {
             width,
             height,
         }
+    }
+}
+
+pub(crate) trait Canvas {
+    type Pixels<'b>: Iterator<Item = Pixel<'b>>
+    where
+        Self: 'b;
+
+    fn pixels(&mut self) -> Self::Pixels<'_>;
+
+    fn at(&mut self, position: Position) -> Option<Pixel>;
+
+    fn fill(&mut self, color: Color) {
+        self.pixels().for_each(|mut p| p.write(color));
+    }
+
+    fn fill_in(&mut self, region: Region, color: Color) {
+        let Position { x, y } = region.position;
+        for y in y..(y + region.height) {
+            for x in x..(x + region.width) {
+                if let Some(mut p) = self.at(Position { x, y }) {
+                    p.write(color);
+                }
+            }
+        }
+    }
+
+    fn fill_by<F>(&mut self, f: F)
+    where
+        F: Fn(Position) -> Color,
+    {
+        self.pixels().for_each(|mut p| {
+            p.write(f(p.position));
+        });
     }
 }
 

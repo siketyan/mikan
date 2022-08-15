@@ -32,6 +32,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-v1-
 
+      - name: Prepare resources
+        run: make resources
+
       - name: Fetch dependencies
         run: cargo fetch --locked
 

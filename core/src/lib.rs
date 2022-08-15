@@ -7,8 +7,8 @@ pub enum PixelFormat {
 }
 
 #[derive(Debug)]
-pub struct FrameBufferConfig<'a> {
-    pub buf: &'a mut [u8],
+pub struct FrameBufferConfig {
+    pub buf: &'static mut [u8],
     pub pixels_per_scan_line: usize,
     pub width: usize,
     pub height: usize,
@@ -16,8 +16,8 @@ pub struct FrameBufferConfig<'a> {
 }
 
 #[derive(Debug)]
-pub struct KernelArgs<'a> {
-    pub frame_buffer: FrameBufferConfig<'a>,
+pub struct KernelArgs {
+    pub frame_buffer: FrameBufferConfig,
 }
 
 pub type Entrypoint = extern "C" fn(KernelArgs) -> !;

@@ -38,7 +38,7 @@ licenced under the licence. For details of the licence, see [LICENCE.md](./LICEN
 - [x] Day 2: Memory map
 - [x] Day 3: Bootloader and framebuffer
 - [x] Day 4: Pixel drawing
-- [ ] Day 5: Text rendering and console
+- [x] Day 5: Text rendering and console
 - [ ] Day 6: Mouse input and PCI
 - [ ] Day 7: Interruption and FIFO
 - [ ] Day 8: Memory management
