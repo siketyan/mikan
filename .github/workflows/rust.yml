@@ -45,6 +45,3 @@ jobs:
       - name: Lint (Kernel)
         working-directory: ./kernel
         run: cargo clippy
-
-      - name: Tests
-        run: cargo test --workspace --exclude mikan-efi --target aarch64-unknown-linux-gnu
