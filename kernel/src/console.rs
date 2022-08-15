@@ -9,8 +9,11 @@ const COLUMNS: usize = 80;
 const WIDTH: usize = COLUMNS * FONT_WIDTH;
 const HEIGHT: usize = ROWS * FONT_HEIGHT;
 
-pub(crate) struct Console<'a, W> {
-    writer: &'a mut W,
+pub(crate) struct Console<W>
+where
+    W: 'static,
+{
+    writer: &'static mut W,
     position: Position,
     cursor: (usize, usize),
     background: Color,
@@ -18,11 +21,11 @@ pub(crate) struct Console<'a, W> {
     buffer: [[char; COLUMNS + 1]; ROWS],
 }
 
-impl<'a, W> Console<'a, W>
+impl<W> Console<W>
 where
-    W: Canvas<'a>,
+    W: Canvas,
 {
-    pub(crate) fn new(writer: &'a mut W) -> Self {
+    pub(crate) fn new(writer: &'static mut W) -> Self {
         Self {
             writer,
             position: Position::zero(),
@@ -89,9 +92,9 @@ where
     }
 }
 
-impl<'a, W> Write for Console<'a, W>
+impl<W> Write for Console<W>
 where
-    W: TextWriter<'a>,
+    W: TextWriter,
 {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         s.chars().for_each(|c| {

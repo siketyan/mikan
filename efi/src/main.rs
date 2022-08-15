@@ -122,7 +122,7 @@ impl Application {
         Ok(())
     }
 
-    fn get_frame_buffer<'a>(&mut self) -> Result<FrameBufferConfig<'a>> {
+    fn get_frame_buffer(&mut self) -> Result<FrameBufferConfig> {
         let mut handles = allocate_uninit(16);
 
         self.system_table

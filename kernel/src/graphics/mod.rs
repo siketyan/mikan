@@ -127,7 +127,7 @@ impl Region {
     }
 }
 
-pub(crate) trait Canvas<'a> {
+pub(crate) trait Canvas {
     type Pixels<'b>: Iterator<Item = Pixel<'b>>
     where
         Self: 'b;

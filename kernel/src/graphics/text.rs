@@ -4,7 +4,7 @@ use crate::graphics::{Canvas, Color, Position};
 pub(crate) const FONT_HEIGHT: usize = 16;
 pub(crate) const FONT_WIDTH: usize = 8;
 
-pub(crate) trait TextWriter<'a>: Canvas<'a> {
+pub(crate) trait TextWriter: Canvas {
     fn write_glyph(&mut self, position: Position, glyph: &[u8], color: Color) {
         #[allow(clippy::needless_range_loop)]
         for y in 0..FONT_HEIGHT {
@@ -45,4 +45,4 @@ pub(crate) trait TextWriter<'a>: Canvas<'a> {
     }
 }
 
-impl<'a, T> TextWriter<'a> for T where T: Canvas<'a> {}
+impl<T> TextWriter for T where T: Canvas {}

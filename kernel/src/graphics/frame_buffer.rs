@@ -12,11 +12,11 @@ fn pixel_format_to_writer<'a>(pixel_format: PixelFormat) -> &'a dyn PixelWriter 
     }
 }
 
-pub(crate) struct FrameBuffer<'a> {
-    config: FrameBufferConfig<'a>,
+pub(crate) struct FrameBuffer {
+    config: FrameBufferConfig,
 }
 
-impl<'a> Canvas<'a> for FrameBuffer<'a> {
+impl Canvas for FrameBuffer {
     #[rustfmt::skip]
     type Pixels<'b> =
         Map<Enumerate<IterMut<'b, [u8; 4]>>, impl FnMut((usize, &'b mut [u8; 4])) -> Pixel>
@@ -50,8 +50,8 @@ impl<'a> Canvas<'a> for FrameBuffer<'a> {
     }
 }
 
-impl<'a> From<FrameBufferConfig<'a>> for FrameBuffer<'a> {
-    fn from(config: FrameBufferConfig<'a>) -> Self {
+impl From<FrameBufferConfig> for FrameBuffer {
+    fn from(config: FrameBufferConfig) -> Self {
         Self { config }
     }
 }

@@ -24,28 +24,42 @@ fn panic(_info: &PanicInfo) -> ! {
     todo!()
 }
 
+static mut FRAME_BUFFER: Option<FrameBuffer> = None;
+static mut CONSOLE: Option<Console<FrameBuffer>> = None;
+
+macro_rules! println {
+    ($($t: tt)*) => {
+        if let Some(c) = unsafe { CONSOLE.as_mut() } {
+            writeln!(c, $($t)*).ok();
+        }
+    };
+}
+
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 extern "C" fn kernel_main(args: KernelArgs) -> ! {
-    let mut frame_buffer = FrameBuffer::from(args.frame_buffer);
+    unsafe {
+        FRAME_BUFFER = Some(FrameBuffer::from(args.frame_buffer));
+        CONSOLE = Some(
+            Console::new(FRAME_BUFFER.as_mut().unwrap())
+                .with_position((0, 82))
+                .with_color(Colors::black()),
+        );
+    }
+
+    let frame_buffer = unsafe { FRAME_BUFFER.as_mut().unwrap() };
 
     frame_buffer.fill(Colors::white());
     frame_buffer.fill_in(Region::new((100, 100).into(), 200, 100), Colors::green());
     frame_buffer.write_chars((0, 50).into(), '!'..='~', Colors::black());
     frame_buffer.write_string((0, 66).into(), "Hello, world!", Colors::blue());
 
-    let mut c = Console::new(&mut frame_buffer)
-        .with_position((0, 82))
-        .with_color(Colors::black());
-
-    writeln!(c, "1 + 2 = {}", 1 + 2).ok();
-    writeln!(
-        c,
+    println!("1 + 2 = {}", 1 + 2);
+    println!(
         "It's so Loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong string"
-    )
-    .ok();
+    );
 
-    (0..30).try_for_each(|i| writeln!(c, "line {}", i)).ok();
+    (0..30).for_each(|i| println!("line {}", i));
 
     loop {
         aarch64::instructions::halt();
