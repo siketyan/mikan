@@ -37,6 +37,10 @@ jobs:
             ${{ runner.os }}-cargo-v1-
 
       - name: Install dependencies
+        if: ${{ matrix.runner == 'ubuntu-22.04' }}
+        run: sudo apt install mold
+
+      - name: Install dependencies
         if: ${{ matrix.runner == 'macos-12' }}
         run: brew install dosfstools mold
 
