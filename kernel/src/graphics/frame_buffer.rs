@@ -1,3 +1,5 @@
+use core::iter::{Enumerate, Map};
+use core::slice::IterMut;
 use mikan_core::FrameBufferConfig;
 
 use super::*;
@@ -14,8 +16,14 @@ pub(crate) struct FrameBuffer<'a> {
     config: FrameBufferConfig<'a>,
 }
 
-impl<'a> FrameBuffer<'a> {
-    pub(crate) fn pixels(&mut self) -> impl Iterator<Item = Pixel> {
+impl<'a> Canvas<'a> for FrameBuffer<'a> {
+    #[rustfmt::skip]
+    type Pixels<'b> =
+        Map<Enumerate<IterMut<'b, [u8; 4]>>, impl FnMut((usize, &'b mut [u8; 4])) -> Pixel>
+    where
+        Self: 'b;
+
+    fn pixels(&mut self) -> Self::Pixels<'_> {
         let pixels_per_scan_line = self.config.pixels_per_scan_line;
         let pixel_format = self.config.pixel_format;
         unsafe { self.config.buf.as_chunks_unchecked_mut() }
@@ -28,7 +36,7 @@ impl<'a> FrameBuffer<'a> {
             })
     }
 
-    pub(crate) fn at(&mut self, position: Position) -> Option<Pixel> {
+    fn at(&mut self, position: Position) -> Option<Pixel> {
         let offset = position.into_offset(self.config.pixels_per_scan_line);
         let pixel_format = self.config.pixel_format;
 
@@ -39,30 +47,6 @@ impl<'a> FrameBuffer<'a> {
             position,
             writer: pixel_format_to_writer(pixel_format),
         })
-    }
-
-    pub(crate) fn fill(&mut self, color: Color) {
-        self.pixels().for_each(|mut p| p.write(color));
-    }
-
-    pub(crate) fn fill_in(&mut self, region: Region, color: Color) {
-        let Position { x, y } = region.position;
-        for y in y..(y + region.height) {
-            for x in x..(x + region.width) {
-                if let Some(mut p) = self.at(Position { x, y }) {
-                    p.write(color);
-                }
-            }
-        }
-    }
-
-    pub(crate) fn fill_by<F>(&mut self, f: F)
-    where
-        F: Fn(Position) -> Color,
-    {
-        self.pixels().for_each(|mut p| {
-            p.write(f(p.position));
-        });
     }
 }
 

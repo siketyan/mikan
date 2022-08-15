@@ -105,6 +105,40 @@ impl Region {
     }
 }
 
+pub(crate) trait Canvas<'a> {
+    type Pixels<'b>: Iterator<Item = Pixel<'b>>
+    where
+        Self: 'b;
+
+    fn pixels(&mut self) -> Self::Pixels<'_>;
+
+    fn at(&mut self, position: Position) -> Option<Pixel>;
+
+    fn fill(&mut self, color: Color) {
+        self.pixels().for_each(|mut p| p.write(color));
+    }
+
+    fn fill_in(&mut self, region: Region, color: Color) {
+        let Position { x, y } = region.position;
+        for y in y..(y + region.height) {
+            for x in x..(x + region.width) {
+                if let Some(mut p) = self.at(Position { x, y }) {
+                    p.write(color);
+                }
+            }
+        }
+    }
+
+    fn fill_by<F>(&mut self, f: F)
+    where
+        F: Fn(Position) -> Color,
+    {
+        self.pixels().for_each(|mut p| {
+            p.write(f(p.position));
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

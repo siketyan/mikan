@@ -1,6 +1,8 @@
 #![cfg_attr(not(test), no_main)]
 #![cfg_attr(not(test), no_std)]
 #![feature(slice_as_chunks)]
+#![feature(type_alias_impl_trait)]
+#![feature(generic_associated_types)]
 
 mod graphics;
 
@@ -9,7 +11,7 @@ use core::panic::PanicInfo;
 use mikan_core::KernelArgs;
 
 use crate::graphics::frame_buffer::FrameBuffer;
-use crate::graphics::{Color, Region};
+use crate::graphics::{Canvas, Color, Region};
 
 #[panic_handler]
 #[cfg(not(test))]
