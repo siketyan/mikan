@@ -29,6 +29,10 @@ Builds a disk image and boots them on QEMU by calling only one command:
 make boot
 ```
 
+## Licencing
+Since the original MikanOS is licenced under the Apache 2.0 Licence (see the repo), this repository is also
+licenced under the licence. For details of the licence, see [LICENCE.md](./LICENCE.md).
+
 ## Roadmap
 - [x] Day 1: Hello world
 - [x] Day 2: Memory map
