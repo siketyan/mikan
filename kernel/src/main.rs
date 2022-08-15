@@ -1,10 +1,18 @@
-#![no_main]
-#![no_std]
+#![cfg_attr(not(test), no_main)]
+#![cfg_attr(not(test), no_std)]
+#![feature(slice_as_chunks)]
 
+mod graphics;
+
+#[cfg(not(test))]
 use core::panic::PanicInfo;
 use mikan_core::KernelArgs;
 
+use crate::graphics::frame_buffer::FrameBuffer;
+use crate::graphics::{Color, Region};
+
 #[panic_handler]
+#[cfg(not(test))]
 fn panic(_info: &PanicInfo) -> ! {
     todo!()
 }
@@ -12,15 +20,13 @@ fn panic(_info: &PanicInfo) -> ! {
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
 extern "C" fn kernel_main(args: KernelArgs) -> ! {
-    let frame_buffer = args.frame_buffer;
+    let mut frame_buffer = FrameBuffer::from(args.frame_buffer);
 
-    frame_buffer
-        .buf
-        .iter_mut()
-        .enumerate()
-        .for_each(|(i, buf)| {
-            *buf = (i % 256) as u8;
-        });
+    frame_buffer.fill(Color::from(0xFFFFFF));
+    frame_buffer.fill_in(
+        Region::new((100, 100).into(), 200, 100),
+        Color::from(0x00FF00),
+    );
 
     loop {
         aarch64::instructions::halt();
