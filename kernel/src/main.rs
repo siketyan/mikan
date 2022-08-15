@@ -39,6 +39,11 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
         .with_color(Colors::black());
 
     writeln!(c, "1 + 2 = {}", 1 + 2).ok();
+    writeln!(
+        c,
+        "It's so Loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong string"
+    )
+    .ok();
 
     loop {
         aarch64::instructions::halt();

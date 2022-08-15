@@ -1,8 +1,8 @@
 use crate::graphics::fonts::{Font, Shinonome};
 use crate::graphics::{Canvas, Color, Position};
 
-const FONT_HEIGHT: usize = 16;
-const FONT_WIDTH: usize = 8;
+pub(crate) const FONT_HEIGHT: usize = 16;
+pub(crate) const FONT_WIDTH: usize = 8;
 
 pub(crate) trait TextWriter<'a>: Canvas<'a> {
     fn write_glyph(&mut self, position: Position, glyph: &[u8], color: Color) {
