@@ -10,8 +10,9 @@ use alloc::format;
 use anyhow::{anyhow, Result};
 use core::fmt::Write;
 use elf_rs::{Elf, ElfFile};
+use mikan_core::{Entrypoint, FrameBufferConfig, KernelArgs};
 use uefi::prelude::*;
-use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo};
+use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo, PixelFormat};
 use uefi::proto::media::file::{Directory, File, FileAttribute, FileInfo, FileMode, RegularFile};
 use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType, SearchType};
 use uefi::CString16;
@@ -43,8 +44,6 @@ macro_rules! eprintln {
 }
 
 const KERNEL_ADDRESS: usize = 0x40000000;
-
-type Entrypoint = extern "C" fn(*mut u8, usize) -> !;
 
 struct WrappedFile {
     file: RegularFile,
@@ -122,7 +121,7 @@ impl Application {
         Ok(())
     }
 
-    fn get_frame_buffer<'a>(&mut self) -> Result<FrameBuffer<'a>> {
+    fn get_frame_buffer<'a>(&mut self) -> Result<FrameBufferConfig<'a>> {
         let mut handles = allocate_uninit(16);
 
         self.system_table
@@ -171,14 +170,23 @@ impl Application {
             frame_buffer.size()
         )?;
 
-        Ok(frame_buffer)
+        Ok(FrameBufferConfig {
+            buf: unsafe {
+                core::slice::from_raw_parts_mut(frame_buffer.as_mut_ptr(), frame_buffer.size())
+            },
+            pixels_per_scan_line: 0,
+            width,
+            height,
+            pixel_format: match mode_info.pixel_format() {
+                PixelFormat::Rgb => mikan_core::PixelFormat::RGBResv8BitPerColor,
+                PixelFormat::Bgr => mikan_core::PixelFormat::BGRResv8BitPerColor,
+                _ => return Err(anyhow!("Unknown pixel format")),
+            },
+        })
     }
 
-    fn fill_screen(&mut self, frame_buffer: &mut FrameBuffer) -> Result<()> {
-        unsafe { core::slice::from_raw_parts_mut(frame_buffer.as_mut_ptr(), frame_buffer.size()) }
-            .fill(0xff);
-
-        Ok(())
+    fn fill_screen(&mut self, frame_buffer: &mut FrameBufferConfig) {
+        frame_buffer.buf.fill(0xff);
     }
 
     fn load_kernel(&mut self, root_dir: &mut Directory) -> Result<usize> {
@@ -221,7 +229,7 @@ impl Application {
             .entry_point() as usize)
     }
 
-    fn boot(self, entry_point: usize, frame_buffer: &mut FrameBuffer) -> Result<()> {
+    fn boot(self, entry_point: usize, frame_buffer: FrameBufferConfig) -> Result<()> {
         println!("Booting kernel, exiting boot services")?;
 
         let mut buf = allocate_aligned::<MemoryDescriptor>(4096);
@@ -230,10 +238,7 @@ impl Application {
             .map(|_| ())
             .map_err(|_| anyhow!("Could not exit boot services"))?;
 
-        (unsafe { core::mem::transmute::<_, Entrypoint>(entry_point) })(
-            frame_buffer.as_mut_ptr(),
-            frame_buffer.size(),
-        )
+        (unsafe { core::mem::transmute::<_, Entrypoint>(entry_point) })(KernelArgs { frame_buffer })
     }
 
     fn execute(mut self) -> Result<()> {
@@ -260,10 +265,10 @@ impl Application {
 
         let mut frame_buffer = self.get_frame_buffer()?;
 
-        self.fill_screen(&mut frame_buffer)?;
+        self.fill_screen(&mut frame_buffer);
 
         self.load_kernel(&mut root_dir)
-            .and_then(|entry_point| self.boot(entry_point, &mut frame_buffer))
+            .and_then(|entry_point| self.boot(entry_point, frame_buffer))
     }
 }
 
