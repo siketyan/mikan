@@ -1,0 +1,54 @@
+name: Image
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        runner:
+#          - ubuntu-22.04
+          - macos-12
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          default: true
+          override: true
+          components: rust-src,rustfmt,clippy
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-v1-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-v1-
+
+      - name: Install dependencies
+        if: ${{ matrix.runner == 'ubuntu-22.04' }}
+        run: sudo apt install mold qemu
+
+      - name: Install dependencies
+        if: ${{ matrix.runner == 'macos-12' }}
+        run: brew install dosfstools mold qemu
+
+      - name: Build image
+        run: make disk.img
+
+      - uses: actions/upload-artifact@v3
+        if: ${{ matrix.runner == 'macos-12' }}
+        with:
+          name: disk.img
+          path: ./disk.img

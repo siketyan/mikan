@@ -1,6 +1,14 @@
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+	MOUNT := hdiutil mount -mountpoint ./mnt ./disk.img
+else
+	MOUNT := mount -o loop ./disk.img ./mnt
+endif
+
 mnt:
 	mkdir -p ./mnt
-	hdiutil mount -mountpoint ./mnt ./disk.img
+	$(MOUNT)
 
 target/aarch64-unknown-uefi/bootx64.efi:
 	cd efi && cargo build

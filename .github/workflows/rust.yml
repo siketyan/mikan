@@ -1,0 +1,47 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          default: true
+          override: true
+          components: rust-src,rustfmt,clippy
+          target: aarch64-unknown-linux-gnu
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-v1-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-v1-
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Lint (EFI)
+        working-directory: ./efi
+        run: cargo clippy
+
+      - name: Lint (Kernel)
+        working-directory: ./kernel
+        run: cargo clippy
