@@ -2,6 +2,14 @@ use mikan_core::FrameBufferConfig;
 
 use super::*;
 
+#[inline]
+fn pixel_format_to_writer<'a>(pixel_format: PixelFormat) -> &'a dyn PixelWriter {
+    match pixel_format {
+        PixelFormat::RgbResv8BitPerColor => &RgbPixelWriter,
+        PixelFormat::BgrResv8BitPerColor => &BgrPixelWriter,
+    }
+}
+
 pub(crate) struct FrameBuffer<'a> {
     config: FrameBufferConfig<'a>,
 }
@@ -16,7 +24,7 @@ impl<'a> FrameBuffer<'a> {
             .map(move |(i, buf)| Pixel {
                 buf,
                 position: Position::from_raw_parts(i, pixels_per_scan_line),
-                pixel_format,
+                writer: pixel_format_to_writer(pixel_format),
             })
     }
 
@@ -29,7 +37,7 @@ impl<'a> FrameBuffer<'a> {
                 .try_into()
                 .ok()?,
             position,
-            pixel_format,
+            writer: pixel_format_to_writer(pixel_format),
         })
     }
 

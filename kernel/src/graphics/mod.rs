@@ -15,14 +15,6 @@ impl Color {
     fn new(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b }
     }
-
-    fn into_bytes(self, pixel_format: PixelFormat) -> [u8; PIXEL_SIZE] {
-        let Self { r, g, b } = self;
-        match pixel_format {
-            PixelFormat::RgbResv8BitPerColor => [r, g, b, 0],
-            PixelFormat::BgrResv8BitPerColor => [b, g, r, 0],
-        }
-    }
 }
 
 impl From<u32> for Color {
@@ -35,15 +27,35 @@ impl From<u32> for Color {
     }
 }
 
+trait PixelWriter {
+    fn write(&self, color: Color) -> [u8; PIXEL_SIZE];
+}
+
+struct RgbPixelWriter;
+
+impl PixelWriter for RgbPixelWriter {
+    fn write(&self, Color { r, g, b }: Color) -> [u8; PIXEL_SIZE] {
+        [r, g, b, 0]
+    }
+}
+
+struct BgrPixelWriter;
+
+impl PixelWriter for BgrPixelWriter {
+    fn write(&self, Color { r, g, b }: Color) -> [u8; PIXEL_SIZE] {
+        [b, g, r, 0]
+    }
+}
+
 pub(crate) struct Pixel<'a> {
     buf: &'a mut [u8; PIXEL_SIZE],
     position: Position,
-    pixel_format: PixelFormat,
+    writer: &'a dyn PixelWriter,
 }
 
 impl<'a> Pixel<'a> {
     fn write(&mut self, c: Color) {
-        *self.buf = c.into_bytes(self.pixel_format);
+        *self.buf = self.writer.write(c);
     }
 }
 
