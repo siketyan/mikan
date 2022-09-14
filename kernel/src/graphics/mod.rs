@@ -2,6 +2,7 @@ use core::ops::{Add, Range};
 use mikan_core::PixelFormat;
 
 pub(crate) mod colors;
+pub(crate) mod cursor;
 pub(crate) mod fonts;
 pub(crate) mod frame_buffer;
 pub(crate) mod text;
@@ -18,7 +19,7 @@ pub(crate) struct Color {
 }
 
 impl Color {
-    fn new(r: u8, g: u8, b: u8) -> Self {
+    pub(crate) fn new(r: u8, g: u8, b: u8) -> Self {
         Self { r, g, b }
     }
 }
@@ -118,9 +119,9 @@ pub(crate) struct Region {
 }
 
 impl Region {
-    pub(crate) fn new(position: Position, width: usize, height: usize) -> Self {
+    pub(crate) fn new(position: impl Into<Position>, width: usize, height: usize) -> Self {
         Self {
-            position,
+            position: position.into(),
             width,
             height,
         }

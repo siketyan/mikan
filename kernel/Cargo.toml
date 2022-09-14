@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 aarch64 = "0.0.7"
+const-str = "0.4.3"
 
 [dependencies.mikan-core]
 path = "../core"
