@@ -44,7 +44,15 @@ where
         self
     }
 
-    pub(crate) fn with_color<C>(mut self, color: C) -> Self
+    pub(crate) fn with_background<C>(mut self, color: C) -> Self
+    where
+        C: Into<Color>,
+    {
+        self.background = color.into();
+        self
+    }
+
+    pub(crate) fn with_foreground<C>(mut self, color: C) -> Self
     where
         C: Into<Color>,
     {

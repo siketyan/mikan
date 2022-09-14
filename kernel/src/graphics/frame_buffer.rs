@@ -23,10 +23,19 @@ impl Canvas for FrameBuffer {
     where
         Self: 'b;
 
-    fn pixels(&mut self) -> Self::Pixels<'_> {
+    fn width(&self) -> usize {
+        self.config.width
+    }
+
+    fn height(&self) -> usize {
+        self.config.height
+    }
+
+    fn pixels(&mut self, position: Position, length: usize) -> Self::Pixels<'_> {
+        let offset = self.config.pixels_per_scan_line * position.y + position.x;
         let pixels_per_scan_line = self.config.pixels_per_scan_line;
         let pixel_format = self.config.pixel_format;
-        unsafe { self.config.buf.as_chunks_unchecked_mut() }
+        unsafe { &mut self.config.buf.as_chunks_unchecked_mut()[offset..offset + length] }
             .iter_mut()
             .enumerate()
             .map(move |(i, buf)| Pixel {
