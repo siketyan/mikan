@@ -1,4 +1,4 @@
-use core::ops::Add;
+use core::ops::{Add, Range};
 use mikan_core::PixelFormat;
 
 pub(crate) mod colors;
@@ -132,22 +132,39 @@ pub(crate) trait Canvas {
     where
         Self: 'b;
 
-    fn pixels(&mut self) -> Self::Pixels<'_>;
+    fn width(&self) -> usize;
+
+    fn height(&self) -> usize;
+
+    fn length(&self) -> usize {
+        self.width() * self.height()
+    }
+
+    fn pixels(&mut self, position: Position, length: usize) -> Self::Pixels<'_>;
+
+    fn pixels_in(&mut self, range: Range<usize>) -> Self::Pixels<'_> {
+        let height = self.height();
+        self.pixels(
+            (range.start / height, range.start % height).into(),
+            range.len(),
+        )
+    }
+
+    fn all(&mut self) -> Self::Pixels<'_> {
+        self.pixels((0, 0).into(), self.length())
+    }
 
     fn at(&mut self, position: Position) -> Option<Pixel>;
 
     fn fill(&mut self, color: Color) {
-        self.pixels().for_each(|mut p| p.write(color));
+        self.all().for_each(|mut p| p.write(color));
     }
 
     fn fill_in(&mut self, region: Region, color: Color) {
         let Position { x, y } = region.position;
         for y in y..(y + region.height) {
-            for x in x..(x + region.width) {
-                if let Some(mut p) = self.at(Position { x, y }) {
-                    p.write(color);
-                }
-            }
+            self.pixels((x, y).into(), region.width)
+                .for_each(|mut p| p.write(color))
         }
     }
 
@@ -155,7 +172,7 @@ pub(crate) trait Canvas {
     where
         F: Fn(Position) -> Color,
     {
-        self.pixels().for_each(|mut p| {
+        self.all().for_each(|mut p| {
             p.write(f(p.position));
         });
     }
