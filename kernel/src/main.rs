@@ -2,7 +2,6 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(slice_as_chunks)]
 #![feature(type_alias_impl_trait)]
-#![feature(generic_associated_types)]
 
 mod console;
 mod graphics;

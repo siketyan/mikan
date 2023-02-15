@@ -1,6 +1,5 @@
 #![no_main]
 #![no_std]
-#![feature(abi_efiapi)]
 
 mod buf;
 
@@ -10,8 +9,10 @@ use alloc::format;
 use anyhow::{anyhow, Result};
 use core::cmp::{max, min};
 use core::fmt::Write;
+use core::ops::DerefMut;
 use elf_rs::{Elf, ElfFile, ProgramType};
 use mikan_core::{Entrypoint, FrameBufferConfig, KernelArgs};
+use uefi::data_types::PhysicalAddress;
 use uefi::prelude::*;
 use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo, PixelFormat};
 use uefi::proto::media::file::{Directory, File, FileAttribute, FileInfo, FileMode, RegularFile};
@@ -44,7 +45,7 @@ macro_rules! eprintln {
     };
 }
 
-const KERNEL_ADDRESS: usize = 0x40000000;
+const KERNEL_ADDRESS: u32 = 0x40000000;
 
 struct WrappedFile {
     file: RegularFile,
@@ -124,9 +125,9 @@ impl Application {
 
     fn get_frame_buffer(&mut self) -> Result<FrameBufferConfig> {
         let mut handles = allocate_uninit(16);
+        let boot_services = self.system_table.boot_services();
 
-        self.system_table
-            .boot_services()
+        boot_services
             .locate_handle(
                 SearchType::ByProtocol(&GraphicsOutput::GUID),
                 Some(&mut handles),
@@ -140,15 +141,13 @@ impl Application {
             .ok_or_else(|| anyhow!("No GOP handles available"))?;
 
         #[allow(deprecated)]
-        let gop: &mut GraphicsOutput = self
-            .system_table
-            .boot_services()
-            .handle_protocol::<GraphicsOutput>(handle)
-            .map_err(err!("Failed to open graphics output protocol"))
-            .and_then(|protocol| {
-                unsafe { protocol.get().as_mut() }
-                    .ok_or_else(|| anyhow!("Could not get the protocol"))
-            })?;
+        let gop: &mut GraphicsOutput =
+            unsafe { boot_services.handle_protocol::<GraphicsOutput>(handle) }
+                .map_err(err!("Failed to open graphics output protocol"))
+                .and_then(|protocol| {
+                    unsafe { protocol.get().as_mut() }
+                        .ok_or_else(|| anyhow!("Could not get the protocol"))
+                })?;
 
         let mode_info: ModeInfo = gop.current_mode_info();
         let (width, height) = mode_info.resolution();
@@ -222,7 +221,7 @@ impl Application {
         self.system_table
             .boot_services()
             .allocate_pages(
-                AllocateType::Address(KERNEL_ADDRESS),
+                AllocateType::Address(PhysicalAddress::from(KERNEL_ADDRESS)),
                 MemoryType::LOADER_DATA,
                 ((last - first + 0xfff) / 0x1000) as usize,
             )
@@ -284,11 +283,8 @@ impl Application {
 
         let mut root_dir: Directory = boot_services
             .get_image_file_system(self.handle)
-            .map_err(err!("Could not get a filesystem from the image"))
-            .and_then(|protocol| {
-                unsafe { protocol.interface.get().as_mut() }
-                    .ok_or_else(|| anyhow!("Could not get filesystem protocol"))
-            })?
+            .map_err(err!("Could not get a filesystem from the image"))?
+            .deref_mut()
             .open_volume()
             .map_err(err!("Failed to open a volume"))?;
 
