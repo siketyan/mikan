@@ -70,6 +70,8 @@ boot: build aavmf
 		-bios ./aavmf/QEMU_EFI.fd \
 		-drive 'if=virtio,file=./disk.img,format=raw' \
 		-device ramfb \
+		-device qemu-xhci \
+		-device usb-mouse \
 		-monitor stdio
 
 .PHONY: reboot

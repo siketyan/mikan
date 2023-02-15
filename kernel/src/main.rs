@@ -104,34 +104,54 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
 
     println!("MCFG is at: {:?}", mcfg.map(|m| m as *const Mcfg));
 
-    mcfg.unwrap().iter().enumerate().for_each(|(i, e)| {
-        println!("PCI Configuration Entry #{}", i);
-        println!("  Base Address: {:X}", e.ptr as usize);
-        println!("  Segment Group: {}", e.segment as usize);
-        println!("  Bus Start: {}", e.bus_start);
-        println!("  Bus End: {}", e.bus_end);
+    let e = mcfg.unwrap().iter().next().unwrap();
+    println!("PCI Configuration Entry:");
+    println!("  Base Address: {:X}", e.ptr as usize);
+    println!("  Segment Group: {}", e.segment as usize);
+    println!("  Bus Start: {}", e.bus_start);
+    println!("  Bus End: {}", e.bus_end);
 
-        let h = e.ptr as *mut CommonHeader;
-        println!("Vendor ID: {:X}", unsafe { &*h }.vendor_id as usize);
-        println!("Device ID: {:X}", unsafe { &*h }.device_id as usize);
+    let cfg = Configuration::from(e);
+    let iter = cfg
+        .iter()
+        .filter(|b| b.is_valid())
+        .enumerate()
+        .flat_map(|(i, bus)| {
+            bus.iter()
+                .filter(|d| d.is_valid())
+                .enumerate()
+                .map(move |(j, device)| (i, j, device))
+        })
+        .flat_map(|(i, j, device)| {
+            device
+                .iter()
+                .filter(|f| f.is_valid())
+                .enumerate()
+                .map(move |(k, function)| (i, j, k, function))
+        });
 
-        let cfg = Configuration::from(e);
-        cfg.iter()
-            .filter(|b| b.is_valid())
-            .enumerate()
-            .for_each(|(i, bus)| {
-                bus.iter()
-                    .filter(|d| d.is_valid())
-                    .enumerate()
-                    .for_each(|(j, device)| {
-                        let h = device.descriptor().h;
-                        println!(
-                            "Bus {}, Device {}: {:04X}:{:04X}",
-                            i, j, h.vendor_id as usize, h.device_id as usize,
-                        );
-                    });
-            })
+    iter.clone().for_each(|(i, j, k, function)| {
+        let h = function.descriptor().h;
+        println!(
+            "{}.{}.{}: vend {:04X}, dev {:04X}, class {:06X}, head {:02X}",
+            i,
+            j,
+            k,
+            h.vendor_id as usize,
+            h.device_id as usize,
+            h.class(),
+            h.header_type as usize,
+        );
     });
+
+    let xhc = iter
+        .clone()
+        .map(|(_, _, _, f)| f)
+        .find(|f| f.descriptor().h.class() == 0x0c0330);
+
+    if xhc.is_some() {
+        println!("xHC Controller Found: {:?}", xhc.unwrap().descriptor());
+    }
 
     write_cursor(frame_buffer);
 

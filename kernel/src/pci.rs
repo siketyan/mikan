@@ -3,18 +3,24 @@ use crate::acpi::McfgEntry;
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct CommonHeader {
-    pub(crate) device_id: u16,
     pub(crate) vendor_id: u16,
+    pub(crate) device_id: u16,
     pub(crate) status: u16,
     pub(crate) command: u16,
-    pub(crate) class_code: u8,
-    pub(crate) sub_class: u8,
-    pub(crate) prog_if: u8,
     pub(crate) revision_id: u8,
-    pub(crate) bist: u8,
-    pub(crate) header_type: u8,
-    pub(crate) latency_timer: u8,
+    pub(crate) prog_if: u8,
+    pub(crate) sub_class: u8,
+    pub(crate) class_code: u8,
     pub(crate) cache_line_size: u8,
+    pub(crate) latency_timer: u8,
+    pub(crate) header_type: u8,
+    pub(crate) bist: u8,
+}
+
+impl CommonHeader {
+    pub(crate) fn class(&self) -> u32 {
+        ((self.class_code as u32) << 16) + ((self.sub_class as u32) << 8) + (self.prog_if as u32)
+    }
 }
 
 #[repr(C, packed)]
@@ -43,6 +49,7 @@ pub(crate) struct Function {
 
 impl_common_fns!(Function);
 
+#[derive(Copy, Clone)]
 pub(crate) struct DeviceIter {
     ptr: *const Descriptor,
     len: usize,
@@ -69,6 +76,17 @@ pub(crate) struct Device {
 
 impl_common_fns!(Device);
 
+impl Device {
+    pub(crate) fn iter(&self) -> DeviceIter {
+        DeviceIter {
+            ptr: self.ptr,
+            len: 8,
+            cursor: 0,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
 pub(crate) struct BusIter {
     ptr: *const Descriptor,
     len: usize,
@@ -105,6 +123,7 @@ impl Bus {
     }
 }
 
+#[derive(Copy, Clone)]
 pub(crate) struct ConfigurationIter {
     ptr: *const Descriptor,
     len: usize,
