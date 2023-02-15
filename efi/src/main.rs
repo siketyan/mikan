@@ -11,12 +11,13 @@ use core::cmp::{max, min};
 use core::fmt::Write;
 use core::ops::DerefMut;
 use elf_rs::{Elf, ElfFile, ProgramType};
-use mikan_core::{Entrypoint, FrameBufferConfig, KernelArgs};
+use mikan_core::{AcpiConfig, Entrypoint, FrameBufferConfig, KernelArgs};
 use uefi::data_types::PhysicalAddress;
 use uefi::prelude::*;
 use uefi::proto::console::gop::{FrameBuffer, GraphicsOutput, ModeInfo, PixelFormat};
 use uefi::proto::media::file::{Directory, File, FileAttribute, FileInfo, FileMode, RegularFile};
 use uefi::table::boot::{AllocateType, MemoryDescriptor, MemoryType, SearchType};
+use uefi::table::cfg::ACPI2_GUID;
 use uefi::CString16;
 use uefi::Identify;
 
@@ -185,6 +186,19 @@ impl Application {
         })
     }
 
+    fn get_acpi_table(&mut self) -> Result<AcpiConfig> {
+        let table = self
+            .system_table
+            .config_table()
+            .iter()
+            .find(|entry| entry.guid == ACPI2_GUID)
+            .ok_or_else(|| anyhow!("RSDR not found"))?;
+
+        Ok(AcpiConfig {
+            rsdp_address: table.address,
+        })
+    }
+
     fn fill_screen(&mut self, frame_buffer: &mut FrameBufferConfig) {
         frame_buffer.buf.fill(0xff);
     }
@@ -259,7 +273,7 @@ impl Application {
         Ok(entry_point)
     }
 
-    fn boot(self, entry_point: usize, frame_buffer: FrameBufferConfig) -> Result<()> {
+    fn boot(self, entry_point: usize, args: KernelArgs) -> Result<()> {
         println!("Booting kernel, exiting boot services")?;
 
         let mut buf = allocate_aligned::<MemoryDescriptor>(4096);
@@ -268,7 +282,7 @@ impl Application {
             .map(|_| ())
             .map_err(|_| anyhow!("Could not exit boot services"))?;
 
-        (unsafe { core::mem::transmute::<_, Entrypoint>(entry_point) })(KernelArgs { frame_buffer })
+        (unsafe { core::mem::transmute::<_, Entrypoint>(entry_point) })(args)
     }
 
     fn execute(mut self) -> Result<()> {
@@ -291,11 +305,12 @@ impl Application {
         self.save_memory_map(iter, &mut root_dir)?;
 
         let mut frame_buffer = self.get_frame_buffer()?;
+        let acpi = self.get_acpi_table()?;
 
         self.fill_screen(&mut frame_buffer);
 
         self.load_kernel(&mut root_dir)
-            .and_then(|entry_point| self.boot(entry_point, frame_buffer))
+            .and_then(|entry_point| self.boot(entry_point, KernelArgs { frame_buffer, acpi }))
     }
 }
 
