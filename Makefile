@@ -44,6 +44,16 @@ umount:
 	umount ./mnt
 	rm -rf ./mnt
 
+.PHONY: check
+check:
+	cd efi && cargo check
+	cd kernel && cargo check
+
+.PHONY: clippy
+clippy:
+	cd efi && cargo clippy
+	cd kernel && cargo clippy
+
 .PHONY: build
 build: disk.img
 
