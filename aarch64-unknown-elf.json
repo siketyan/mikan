@@ -7,6 +7,7 @@
   "emit-debug-gdb-scripts": false,
   "exe-suffix": ".elf",
   "executables": true,
+  "features": "+v8.1a",
   "is-builtin": false,
   "is-like-msvc": false,
   "is-like-windows": false,
