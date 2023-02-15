@@ -3,15 +3,17 @@
 #![feature(slice_as_chunks)]
 #![feature(type_alias_impl_trait)]
 
+mod acpi;
 mod console;
 mod graphics;
 
+use core::ffi::c_char;
 #[cfg(not(test))]
 use core::panic::PanicInfo;
 
-use core::fmt::Write;
 use mikan_core::KernelArgs;
 
+use crate::acpi::{Mcfg, RsdpDescriptor};
 use crate::console::Console;
 use crate::graphics::cursor::write_cursor;
 use crate::graphics::frame_buffer::FrameBuffer;
@@ -27,9 +29,11 @@ fn panic(_info: &PanicInfo) -> ! {
 static mut FRAME_BUFFER: Option<FrameBuffer> = None;
 static mut CONSOLE: Option<Console<FrameBuffer>> = None;
 
+#[macro_export]
 macro_rules! println {
     ($($t: tt)*) => {
-        if let Some(c) = unsafe { CONSOLE.as_mut() } {
+        if let Some(c) = unsafe { $crate::CONSOLE.as_mut() } {
+            use core::fmt::Write;
             writeln!(c, $($t)*).ok();
         }
     };
@@ -75,6 +79,28 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     );
 
     println!("Welcome to MikanOS!");
+    println!("RSDP is at {:?}", args.acpi.rsdp_address);
+
+    let rsdp = RsdpDescriptor::from_ptr(args.acpi.rsdp_address);
+    let rsdp2 = rsdp.as_rev_2();
+
+    println!("RSDP Revision: {:?}", rsdp.revision);
+    println!("RSDP2 XSDT Address: {:?}", rsdp2.map(|r| r.xsdt_address));
+
+    let xsdt = rsdp2.unwrap().xsdt();
+
+    println!("XSDT Signature: {:?}", xsdt.h.signature);
+    println!("XSDT Length: {:?}", xsdt.h.length as usize);
+    println!("XSDT Revision: {:?}", xsdt.h.revision);
+
+    let mcfg = xsdt.find_sdt::<Mcfg>(&[
+        b'M' as c_char,
+        b'C' as c_char,
+        b'F' as c_char,
+        b'G' as c_char,
+    ]);
+
+    println!("MCFG is at: {:?}", mcfg.map(|m| m as *const Mcfg));
 
     write_cursor(frame_buffer);
 
