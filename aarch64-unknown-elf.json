@@ -27,7 +27,6 @@
     ]
   },
   "singlethread": true,
-  "split-debuginfo": "packed",
   "stack-probes": {
     "kind": "call"
   },

@@ -16,5 +16,5 @@ aarch64 = "0.0.7"
 path = "../core"
 
 [build-dependencies]
-bdf = "0.6"
-itertools = "0.10"
+bdf = "0.6.0"
+itertools = "0.10.5"
