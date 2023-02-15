@@ -2,21 +2,7 @@ use core::ffi::{c_char, c_void};
 use core::mem::size_of;
 use core::ptr::addr_of;
 
-use crate::acpi::Sdt;
-use crate::println;
-
-#[repr(C, packed)]
-pub(crate) struct AcpiSdtHeader {
-    pub(crate) signature: [c_char; 4],
-    pub(crate) length: u32,
-    pub(crate) revision: u8,
-    pub(crate) checksum: u8,
-    pub(crate) oem_id: [c_char; 6],
-    pub(crate) oem_table_id: [c_char; 8],
-    pub(crate) oem_revision: u32,
-    pub(crate) creator_id: u32,
-    pub(crate) creator_revision: u32,
-}
+use crate::acpi::{Sdt, SdtHeader};
 
 pub(crate) struct XsdtEntry {
     ptr: *const c_void,
@@ -59,7 +45,7 @@ impl Iterator for XsdtIter {
 
 #[repr(C, packed)]
 pub(crate) struct Xsdt {
-    pub(crate) h: AcpiSdtHeader,
+    pub(crate) h: SdtHeader,
     pointer_to_other_sdt: [u64; 1],
 }
 
@@ -67,7 +53,7 @@ impl Xsdt {
     pub(crate) fn iter(&self) -> XsdtIter {
         XsdtIter {
             ptr: addr_of!(self.pointer_to_other_sdt) as *const u64,
-            len: (self.h.length as usize - size_of::<AcpiSdtHeader>()) / size_of::<u64>(),
+            len: (self.h.length as usize - size_of::<SdtHeader>()) / size_of::<u64>(),
             cursor: 0,
         }
     }

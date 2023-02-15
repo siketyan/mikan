@@ -82,16 +82,15 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     println!("RSDP is at {:?}", args.acpi.rsdp_address);
 
     let rsdp = RsdpDescriptor::from_ptr(args.acpi.rsdp_address);
-    let rsdp2 = rsdp.as_rev_2();
+    let rsdp2 = rsdp.as_rev_2().unwrap();
 
-    println!("RSDP Revision: {:?}", rsdp.revision);
-    println!("RSDP2 XSDT Address: {:?}", rsdp2.map(|r| r.xsdt_address));
+    println!("RSDP Revision: {}", rsdp.revision);
+    println!("RSDP2 XSDT Address: {:X}", rsdp.rsdt_address as usize);
 
-    let xsdt = rsdp2.unwrap().xsdt();
+    let xsdt = rsdp2.xsdt();
 
-    println!("XSDT Signature: {:?}", xsdt.h.signature);
-    println!("XSDT Length: {:?}", xsdt.h.length as usize);
-    println!("XSDT Revision: {:?}", xsdt.h.revision);
+    println!("XSDT Length: {}", xsdt.h.length as usize);
+    println!("XSDT Revision: {}", xsdt.h.revision);
 
     let mcfg = xsdt.find_sdt::<Mcfg>(&[
         b'M' as c_char,
@@ -101,6 +100,14 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     ]);
 
     println!("MCFG is at: {:?}", mcfg.map(|m| m as *const Mcfg));
+
+    mcfg.unwrap().iter().enumerate().for_each(|(i, e)| {
+        println!("PCI Configuration Entry #{}", i);
+        println!("  Base Address: {:X}", e.ptr as usize);
+        println!("  Segment Group: {}", e.segment as usize);
+        println!("  Bus Start: {}", e.bus_start);
+        println!("  Bus End: {}", e.bus_end);
+    });
 
     write_cursor(frame_buffer);
 
