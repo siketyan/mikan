@@ -1,51 +1,152 @@
-use core::arch::asm;
+use crate::acpi::McfgEntry;
 
-const MMIO_BASE_ADDRESS: usize = 0x1000_0000;
-const SMC_PCI_VERSION: u32 = 0x8400_0130;
-const SMC_SMCCC_VERSION: u32 = 0x8000_0000;
-
-#[derive(Debug)]
-#[repr(C)]
+#[repr(C, packed)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct CommonHeader {
-    device_id: u16,
-    vendor_id: u16,
-    status: u16,
-    command: u16,
-    class_code: u8,
-    sub_class: u8,
-    prog_if: u8,
-    revision_id: u8,
-    bist: u8,
-    header_type: u8,
-    latency_timer: u8,
-    cache_line_size: u8,
+    pub(crate) device_id: u16,
+    pub(crate) vendor_id: u16,
+    pub(crate) status: u16,
+    pub(crate) command: u16,
+    pub(crate) class_code: u8,
+    pub(crate) sub_class: u8,
+    pub(crate) prog_if: u8,
+    pub(crate) revision_id: u8,
+    pub(crate) bist: u8,
+    pub(crate) header_type: u8,
+    pub(crate) latency_timer: u8,
+    pub(crate) cache_line_size: u8,
 }
 
-type FnPciVersion = extern "C" fn() -> u32;
-
-pub(crate) fn make_address(bus: u8, device: u8, function: u8, address: u8) -> usize {
-    MMIO_BASE_ADDRESS
-        + ((bus as usize) << 20
-            | (device as usize) << 15
-            | (function as usize) << 12
-            | (address as usize))
+#[repr(C, packed)]
+#[derive(Debug)]
+pub(crate) struct Descriptor {
+    pub(crate) h: CommonHeader,
 }
 
-pub(crate) fn read_vendor_id(bus: u8, device: u8, function: u8) -> u16 {
-    unsafe { &*(make_address(bus, device, function, 0x00) as *mut CommonHeader) }.vendor_id
+macro_rules! impl_common_fns {
+    ($t:ty) => {
+        impl $t {
+            pub(crate) fn descriptor(&self) -> &'static Descriptor {
+                unsafe { &*self.ptr }
+            }
+
+            pub(crate) fn is_valid(&self) -> bool {
+                self.descriptor().h.vendor_id != 0xffff
+            }
+        }
+    };
 }
 
-pub(crate) fn read_header<'a>() -> &'a CommonHeader {
-    unsafe { &*(make_address(0, 0, 0, 0x00) as *mut CommonHeader) }
+pub(crate) struct Function {
+    ptr: *const Descriptor,
 }
 
-pub(crate) fn pci_version() -> (u16, u16) {
-    let mut version = 0u32;
-    // unsafe {
-    //     asm!("mov w0, {id:w}", id = in(reg) SMC_SMCCC_VERSION);
-    //     asm!("smc 0", clobber_abi("C"));
-    //     asm!("mov {version:w}, w0", version = out(reg) version);
-    // }
+impl_common_fns!(Function);
 
-    ((version >> 16) as u16, (version & 0xffff) as u16)
+pub(crate) struct DeviceIter {
+    ptr: *const Descriptor,
+    len: usize,
+    cursor: usize,
+}
+
+impl Iterator for DeviceIter {
+    type Item = Function;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cursor < self.len {
+            let ptr = unsafe { self.ptr.byte_add(self.cursor * 4096) };
+            self.cursor += 1;
+            Some(Function { ptr })
+        } else {
+            None
+        }
+    }
+}
+
+pub(crate) struct Device {
+    ptr: *const Descriptor,
+}
+
+impl_common_fns!(Device);
+
+pub(crate) struct BusIter {
+    ptr: *const Descriptor,
+    len: usize,
+    cursor: usize,
+}
+
+impl Iterator for BusIter {
+    type Item = Device;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cursor < self.len {
+            let ptr = unsafe { self.ptr.byte_add((self.cursor << 3) * 4096) };
+            self.cursor += 1;
+            Some(Device { ptr })
+        } else {
+            None
+        }
+    }
+}
+
+pub(crate) struct Bus {
+    ptr: *const Descriptor,
+}
+
+impl_common_fns!(Bus);
+
+impl Bus {
+    pub(crate) fn iter(&self) -> BusIter {
+        BusIter {
+            ptr: self.ptr,
+            len: 32,
+            cursor: 0,
+        }
+    }
+}
+
+pub(crate) struct ConfigurationIter {
+    ptr: *const Descriptor,
+    len: usize,
+    cursor: usize,
+}
+
+impl Iterator for ConfigurationIter {
+    type Item = Bus;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cursor < self.len {
+            let ptr = unsafe { self.ptr.byte_add((self.cursor << 8) * 4096) };
+            self.cursor += 1;
+            Some(Bus { ptr })
+        } else {
+            None
+        }
+    }
+}
+
+pub(crate) struct Configuration {
+    ptr: *const Descriptor,
+    bus_start: usize,
+    bus_end: usize,
+}
+
+impl Configuration {
+    pub(crate) fn iter(&self) -> ConfigurationIter {
+        ConfigurationIter {
+            ptr: self.ptr,
+            len: self.bus_end - self.bus_start,
+            cursor: 0,
+        }
+    }
+}
+
+impl From<McfgEntry> for Configuration {
+    fn from(value: McfgEntry) -> Self {
+        Self {
+            ptr: value.ptr as *const Descriptor,
+            bus_start: value.bus_start as usize,
+            bus_end: value.bus_end as usize,
+        }
+    }
 }

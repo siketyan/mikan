@@ -2,10 +2,12 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(slice_as_chunks)]
 #![feature(type_alias_impl_trait)]
+#![feature(pointer_byte_offsets)]
 
 mod acpi;
 mod console;
 mod graphics;
+mod pci;
 
 use core::ffi::c_char;
 #[cfg(not(test))]
@@ -19,6 +21,7 @@ use crate::graphics::cursor::write_cursor;
 use crate::graphics::frame_buffer::FrameBuffer;
 use crate::graphics::text::TextWriter;
 use crate::graphics::{Canvas, Color, Colors, Position, Region};
+use crate::pci::{CommonHeader, Configuration};
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -107,6 +110,27 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
         println!("  Segment Group: {}", e.segment as usize);
         println!("  Bus Start: {}", e.bus_start);
         println!("  Bus End: {}", e.bus_end);
+
+        let h = e.ptr as *mut CommonHeader;
+        println!("Vendor ID: {:X}", unsafe { &*h }.vendor_id as usize);
+        println!("Device ID: {:X}", unsafe { &*h }.device_id as usize);
+
+        let cfg = Configuration::from(e);
+        cfg.iter()
+            .filter(|b| b.is_valid())
+            .enumerate()
+            .for_each(|(i, bus)| {
+                bus.iter()
+                    .filter(|d| d.is_valid())
+                    .enumerate()
+                    .for_each(|(j, device)| {
+                        let h = device.descriptor().h;
+                        println!(
+                            "Bus {}, Device {}: {:04X}:{:04X}",
+                            i, j, h.vendor_id as usize, h.device_id as usize,
+                        );
+                    });
+            })
     });
 
     write_cursor(frame_buffer);
