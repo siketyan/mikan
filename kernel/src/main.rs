@@ -10,8 +10,12 @@ mod graphics;
 mod pci;
 
 use core::ffi::c_char;
+use core::num::NonZeroUsize;
 #[cfg(not(test))]
 use core::panic::PanicInfo;
+
+use aarch64::instructions::halt;
+use accessor::Mapper;
 
 use mikan_core::KernelArgs;
 
@@ -21,12 +25,19 @@ use crate::graphics::cursor::write_cursor;
 use crate::graphics::frame_buffer::FrameBuffer;
 use crate::graphics::text::TextWriter;
 use crate::graphics::{Canvas, Color, Colors, Position, Region};
-use crate::pci::{CommonHeader, Configuration};
+use crate::pci::{Configuration, COMMAND_MEMORY_SPACE};
 
 #[panic_handler]
 #[cfg(not(test))]
-fn panic(_info: &PanicInfo) -> ! {
-    todo!()
+fn panic(info: &PanicInfo) -> ! {
+    if let Some(c) = unsafe { CONSOLE.as_mut() } {
+        use core::fmt::Write;
+        writeln!(c, "{:?}", info).ok();
+    }
+
+    loop {
+        halt()
+    }
 }
 
 static mut FRAME_BUFFER: Option<FrameBuffer> = None;
@@ -40,6 +51,19 @@ macro_rules! println {
             writeln!(c, $($t)*).ok();
         }
     };
+}
+
+#[derive(Debug, Clone)]
+struct MapperImpl;
+
+impl Mapper for MapperImpl {
+    unsafe fn map(&mut self, phys_start: usize, _bytes: usize) -> NonZeroUsize {
+        NonZeroUsize::new(phys_start).unwrap() // TODO
+    }
+
+    fn unmap(&mut self, _virt_start: usize, _bytes: usize) {
+        // TODO
+    }
 }
 
 #[no_mangle]
@@ -127,35 +151,42 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
                 .iter()
                 .filter(|f| f.is_valid())
                 .enumerate()
-                .map(move |(k, function)| (i, j, k, function))
+                .map(move |(k, function)| (i, j, k, function.descriptor()))
         });
 
-    iter.clone().for_each(|(i, j, k, function)| {
-        let h = function.descriptor().h;
+    iter.clone().for_each(|(i, j, k, d)| {
         println!(
             "{}.{}.{}: vend {:04X}, dev {:04X}, class {:06X}, head {:02X}",
             i,
             j,
             k,
-            h.vendor_id as usize,
-            h.device_id as usize,
-            h.class(),
-            h.header_type as usize,
+            d.vendor_id as usize,
+            d.device_id as usize,
+            d.class(),
+            d.header_type as usize,
         );
     });
 
     let xhc = iter
         .clone()
-        .map(|(_, _, _, f)| f)
-        .find(|f| f.descriptor().h.class() == 0x0c0330);
+        .map(|(_, _, _, d)| d)
+        .find(|d| d.class() == 0x0c0330)
+        .unwrap();
 
-    if xhc.is_some() {
-        println!("xHC Controller Found: {:?}", xhc.unwrap().descriptor());
-    }
+    println!("xHC Controller Found: {:?}", xhc);
+
+    // We need to enable reading/writing access through memory space before accessing the MMIO.
+    xhc.command |= COMMAND_MEMORY_SPACE;
+
+    let xhc_mmio_base = (xhc.bar64_01() & !0xf) as usize;
+    println!("xHC MMIO Base Address: {:08X}", xhc_mmio_base);
+
+    let r = unsafe { xhci::Registers::new(xhc_mmio_base, MapperImpl) };
+    println!("xHC Capability: {:?}", r.capability);
 
     write_cursor(frame_buffer);
 
     loop {
-        aarch64::instructions::halt();
+        halt();
     }
 }
