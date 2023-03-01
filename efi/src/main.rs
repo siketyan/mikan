@@ -254,7 +254,7 @@ impl Application {
                 let diff = memory_size - file_size;
 
                 unsafe { core::slice::from_raw_parts_mut(h.vaddr() as *mut u8, memory_size) }
-                    .copy_from_slice(&buf[offset..offset + file_size]);
+                    .copy_from_slice(&buf[offset..offset + memory_size]);
 
                 unsafe {
                     core::slice::from_raw_parts_mut(

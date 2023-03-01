@@ -8,14 +8,13 @@ mod acpi;
 mod console;
 mod graphics;
 mod pci;
+mod usb;
 
 use core::ffi::c_char;
-use core::num::NonZeroUsize;
 #[cfg(not(test))]
 use core::panic::PanicInfo;
 
 use aarch64::instructions::halt;
-use accessor::Mapper;
 
 use mikan_core::KernelArgs;
 
@@ -26,6 +25,7 @@ use crate::graphics::frame_buffer::FrameBuffer;
 use crate::graphics::text::TextWriter;
 use crate::graphics::{Canvas, Color, Colors, Position, Region};
 use crate::pci::{Configuration, COMMAND_MEMORY_SPACE};
+use crate::usb::Controller;
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -51,19 +51,6 @@ macro_rules! println {
             writeln!(c, $($t)*).ok();
         }
     };
-}
-
-#[derive(Debug, Clone)]
-struct MapperImpl;
-
-impl Mapper for MapperImpl {
-    unsafe fn map(&mut self, phys_start: usize, _bytes: usize) -> NonZeroUsize {
-        NonZeroUsize::new(phys_start).unwrap() // TODO
-    }
-
-    fn unmap(&mut self, _virt_start: usize, _bytes: usize) {
-        // TODO
-    }
 }
 
 #[no_mangle]
@@ -181,12 +168,23 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     let xhc_mmio_base = (xhc.bar64_01() & !0xf) as usize;
     println!("xHC MMIO Base Address: {:08X}", xhc_mmio_base);
 
-    let r = unsafe { xhci::Registers::new(xhc_mmio_base, MapperImpl) };
-    println!("xHC Capability: {:?}", r.capability);
+    let mut controller = unsafe { Controller::new(xhc_mmio_base) };
+    controller.initialize();
+    controller.run();
+
+    for mut p in controller.iter() {
+        if p.is_connected(&controller) {
+            println!("Port {} is connected", p.number);
+            p.configure(&mut controller);
+        }
+    }
+
+    let mut event_ring = controller.ring();
+    println!("Processing event...");
 
     write_cursor(frame_buffer);
 
     loop {
-        halt();
+        event_ring.process_event();
     }
 }

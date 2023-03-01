@@ -13,6 +13,8 @@ path = "src/main.rs"
 aarch64 = "0.0.7"
 accessor = "0.3.3"
 const-str = "0.5.3"
+num-traits = { version = "0.2.15", default-features = false }
+once_cell = { version = "1.17", default-features = false }
 xhci = "0.9.1"
 
 [dependencies.mikan-core]
