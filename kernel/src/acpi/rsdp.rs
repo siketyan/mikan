@@ -1,4 +1,5 @@
 use core::ffi::{c_char, c_void};
+
 use crate::acpi::Xsdt;
 
 #[repr(C, packed)]
