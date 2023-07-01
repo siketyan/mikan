@@ -1,5 +1,6 @@
 #![cfg_attr(not(test), no_main)]
 #![cfg_attr(not(test), no_std)]
+// #![feature(impl_trait_in_assoc_type)]
 #![feature(slice_as_chunks)]
 #![feature(type_alias_impl_trait)]
 #![feature(pointer_byte_offsets)]
@@ -181,13 +182,12 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
         }
     }
 
-    println!("Processing event...");
-    event_ring.process_event(&mut controller);
-
     write_cursor(frame_buffer);
 
+    println!("Processing event...");
+
     loop {
-        // event_ring.process_event();
-        halt();
+        event_ring.process_event(&mut controller);
+        // halt();
     }
 }

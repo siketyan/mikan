@@ -79,6 +79,9 @@ impl<'r> EventRing<'r> {
             segment_table,
         };
 
+        ring.segment_table[0].base = ring.buffer.as_mut_ptr() as u64;
+        ring.segment_table[0].size = ring.segment_table.len() as u16;
+
         println!("ERSTSZ: {:04X}", ring.segment_table.len() as u16);
         controller.interrupter().erstsz.update_volatile(|r| {
             r.set(ring.segment_table.len() as u16);
