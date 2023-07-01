@@ -64,6 +64,7 @@ rebuild:
 .PHONY: boot
 boot: build aavmf
 	qemu-system-aarch64 \
+		-s -S \
 		-machine virt \
 		-cpu cortex-a57 \
 		-m 512 \
@@ -72,7 +73,7 @@ boot: build aavmf
 		-device ramfb \
 		-device qemu-xhci \
 		-device usb-mouse \
-		-monitor stdio
+		-trace 'usb_*,file=usb.log'
 
 .PHONY: reboot
 reboot:

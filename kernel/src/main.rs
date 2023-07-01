@@ -170,6 +170,8 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
 
     let mut controller = unsafe { Controller::new(xhc_mmio_base) };
     controller.initialize();
+
+    let mut event_ring = controller.ring();
     controller.run();
 
     for mut p in controller.iter() {
@@ -179,12 +181,13 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
         }
     }
 
-    let mut event_ring = controller.ring();
     println!("Processing event...");
+    event_ring.process_event(&mut controller);
 
     write_cursor(frame_buffer);
 
     loop {
-        event_ring.process_event();
+        // event_ring.process_event();
+        halt();
     }
 }

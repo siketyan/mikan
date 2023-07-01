@@ -1,14 +1,13 @@
-use crate::println;
-use accessor::marker::ReadWrite;
 use core::ffi::c_void;
 use core::mem::size_of;
+
 use num_traits::FromPrimitive;
-use xhci::registers::runtime::Interrupter;
 use xhci::ring::trb::event::{CommandCompletion, PortStatusChange, TransferEvent};
 use xhci::ring::trb::Type;
 
+use crate::println;
 use crate::usb::memory::Pool;
-use crate::usb::MapperImpl;
+use crate::usb::Controller;
 
 #[derive(Debug)]
 enum TrbPayload<'t> {
@@ -20,9 +19,9 @@ enum TrbPayload<'t> {
 #[repr(C, packed)]
 #[derive(Debug, Default, Copy, Clone)]
 struct Trb {
-    bit: u32,
-    _dummy: u32,
     _dummy2: u64,
+    _dummy: u32,
+    bit: u32,
 }
 
 impl Trb {
@@ -63,11 +62,10 @@ pub(crate) struct EventRing<'r> {
     buffer: &'r mut [Trb],
     cycle_bit: bool,
     segment_table: &'r mut [SegmentTableEntry],
-    interrupter: Interrupter<'r, MapperImpl, ReadWrite>,
 }
 
 impl<'r> EventRing<'r> {
-    pub(crate) fn new(size: usize, interrupter: Interrupter<'r, MapperImpl, ReadWrite>) -> Self {
+    pub(crate) fn new(size: usize, controller: &mut Controller) -> Self {
         let pool = Pool::get();
         let buffer = pool.allocate_slice(size, 64, 64 * 1024);
         buffer.fill(Trb::default());
@@ -79,38 +77,48 @@ impl<'r> EventRing<'r> {
             buffer,
             cycle_bit: true,
             segment_table,
-            interrupter,
         };
 
-        ring.interrupter.erstsz.update_volatile(|r| {
+        println!("ERSTSZ: {:04X}", ring.segment_table.len() as u16);
+        controller.interrupter().erstsz.update_volatile(|r| {
             r.set(ring.segment_table.len() as u16);
         });
 
-        ring.write_dequeue_pointer(&ring.buffer[0]);
+        println!("ERDP: {:04X}", &ring.buffer[0] as *const Trb as u64);
+        ring.write_dequeue_pointer(controller, &ring.buffer[0]);
 
-        ring.interrupter.erstba.update_volatile(|r| {
+        println!(
+            "ERSTBA {:16X}",
+            ring.segment_table as *mut [SegmentTableEntry] as *mut c_void as u64
+        );
+        controller.interrupter().erstba.update_volatile(|r| {
             r.set(ring.segment_table as *mut [SegmentTableEntry] as *mut c_void as u64);
+        });
+
+        controller.interrupter().iman.update_volatile(|r| {
+            r.clear_interrupt_pending();
+            r.set_interrupt_enable();
         });
 
         ring
     }
 
-    pub(crate) fn process_event(&mut self) {
-        if !self.has_front() {
+    pub(crate) fn process_event(&mut self, controller: &mut Controller) {
+        if !self.has_front(controller) {
             return;
         }
 
-        println!("{:?}", self.front().payload());
+        println!("{:?}", self.front(controller).payload());
 
         // match self.front().payload() {
         //     _ => todo!(),
         // }
 
-        self.pop();
+        self.pop(controller);
     }
 
-    fn pop(&mut self) {
-        let mut ptr = unsafe { (self.read_dequeue_pointer() as *const Trb).add(1) };
+    fn pop(&mut self, controller: &mut Controller) {
+        let mut ptr = unsafe { (self.read_dequeue_pointer(controller) as *const Trb).add(1) };
         let segment_begin = self.segment_table[0].base as *const Trb;
         let segment_end = unsafe { segment_begin.add(self.segment_table[0].size as usize) };
         if ptr == segment_end {
@@ -118,30 +126,30 @@ impl<'r> EventRing<'r> {
             self.cycle_bit = !self.cycle_bit;
         }
 
-        self.write_dequeue_pointer(ptr);
+        self.write_dequeue_pointer(controller, ptr);
     }
 
-    fn has_front(&self) -> bool {
-        self.front().cycle_bit() == self.cycle_bit
+    fn has_front(&self, controller: &mut Controller) -> bool {
+        self.front(controller).cycle_bit() == self.cycle_bit
     }
 
-    fn front(&self) -> Trb {
-        *self.read_dequeue_pointer()
+    fn front(&self, controller: &mut Controller) -> Trb {
+        *self.read_dequeue_pointer(controller)
     }
 
-    fn read_dequeue_pointer(&self) -> &Trb {
+    fn read_dequeue_pointer(&self, controller: &mut Controller) -> &Trb {
         unsafe {
-            &*(self
-                .interrupter
+            &*(controller
+                .interrupter()
                 .erdp
                 .read_volatile()
                 .event_ring_dequeue_pointer() as *const Trb)
         }
     }
 
-    fn write_dequeue_pointer(&mut self, trb: *const Trb) {
+    fn write_dequeue_pointer(&mut self, controller: &mut Controller, trb: *const Trb) {
         let ptr = trb as u64;
-        self.interrupter.erdp.update_volatile(|r| {
+        controller.interrupter().erdp.update_volatile(|r| {
             r.set_event_ring_dequeue_pointer(ptr);
         });
     }

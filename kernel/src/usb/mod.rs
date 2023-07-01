@@ -5,9 +5,11 @@ use core::ffi::c_void;
 use core::num::NonZeroUsize;
 use core::ptr::null_mut;
 
+use accessor::marker::ReadWrite;
 use accessor::Mapper;
 use once_cell::unsync::OnceCell;
 use xhci::extended_capabilities::List;
+use xhci::registers::runtime::Interrupter;
 use xhci::{ExtendedCapability, Registers};
 
 use crate::println;
@@ -153,19 +155,6 @@ impl<'c> Controller<'c> {
         self.registers.operational.dcbaap.update_volatile(|r| {
             r.set(ptr as *mut c_void as u64);
         });
-
-        self.registers
-            .interrupter_register_set
-            .interrupter_mut(0)
-            .iman
-            .update_volatile(|r| {
-                r.clear_interrupt_pending();
-                r.set_interrupt_enable();
-            });
-
-        self.registers.operational.usbcmd.update_volatile(|r| {
-            r.set_interrupter_enable();
-        });
     }
 
     pub(crate) fn run(&mut self) {
@@ -182,11 +171,18 @@ impl<'c> Controller<'c> {
         {}
     }
 
-    pub(crate) fn ring(&mut self) -> EventRing {
-        EventRing::new(
-            32,
-            self.registers.interrupter_register_set.interrupter_mut(0),
-        )
+    pub(crate) fn interrupter(&mut self) -> Interrupter<MapperImpl, ReadWrite> {
+        self.registers.interrupter_register_set.interrupter_mut(0)
+    }
+
+    pub(crate) fn ring<'r>(&mut self) -> EventRing<'r> {
+        let ring = EventRing::new(32, self);
+
+        self.registers.operational.usbcmd.update_volatile(|r| {
+            r.set_interrupter_enable();
+        });
+
+        ring
     }
 
     pub(crate) fn max_slots(&self) -> usize {
