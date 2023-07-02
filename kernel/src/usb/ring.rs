@@ -147,12 +147,9 @@ impl<'r> EventRing<'r> {
         println!("ERDP: {:04X}", &ring.buffer[0] as *const EventTrb as u64);
         ring.write_dequeue_pointer(controller, &ring.buffer[0]);
 
-        println!(
-            "ERSTBA {:16X}",
-            ring.segment_table.as_mut_ptr() as *mut c_void as u64
-        );
+        println!("ERSTBA {:16X}", ring.segment_table.as_mut_ptr() as u64);
         controller.interrupter().erstba.update_volatile(|r| {
-            r.set(ring.segment_table.as_mut_ptr() as *mut c_void as u64);
+            r.set(ring.segment_table.as_mut_ptr() as u64);
         });
 
         controller.interrupter().iman.update_volatile(|r| {

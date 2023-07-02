@@ -73,6 +73,7 @@ boot: build aavmf
 		-device ramfb \
 		-device qemu-xhci \
 		-device usb-mouse \
+		-d guest_errors \
 		-trace 'usb_*,file=usb.log' \
 		-trace 'xhci_*,file=usb.log'
 
