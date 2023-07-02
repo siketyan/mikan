@@ -14,7 +14,7 @@ use xhci::{ExtendedCapability, Registers};
 
 use crate::println;
 use crate::usb::memory::Pool;
-use crate::usb::ring::EventRing;
+use crate::usb::ring::{EventRing, Ring};
 
 #[derive(Debug, Clone)]
 pub(crate) struct MapperImpl;
@@ -162,6 +162,9 @@ impl<'c> Controller<'c> {
             r.set_run_stop();
         });
 
+        let r = self.registers.operational.usbcmd.read_volatile();
+        println!("{:?}", r);
+
         while self
             .registers
             .operational
@@ -173,6 +176,12 @@ impl<'c> Controller<'c> {
 
     pub(crate) fn interrupter(&mut self) -> Interrupter<MapperImpl, ReadWrite> {
         self.registers.interrupter_register_set.interrupter_mut(0)
+    }
+
+    pub(crate) fn command_ring<'r>(&mut self) -> Ring<'r> {
+        let ring = Ring::new(32, self);
+
+        ring
     }
 
     pub(crate) fn ring<'r>(&mut self) -> EventRing<'r> {

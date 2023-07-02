@@ -16,6 +16,7 @@ use core::ffi::c_char;
 use core::panic::PanicInfo;
 
 use aarch64::instructions::halt;
+use xhci::ring::trb::command::Noop;
 
 use mikan_core::KernelArgs;
 
@@ -172,15 +173,19 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     let mut controller = unsafe { Controller::new(xhc_mmio_base) };
     controller.initialize();
 
+    let mut command_ring = controller.command_ring();
     let mut event_ring = controller.ring();
     controller.run();
 
-    for mut p in controller.iter() {
-        if p.is_connected(&controller) {
-            println!("Port {} is connected", p.number);
-            p.configure(&mut controller);
-        }
-    }
+    let trb = Noop::new();
+    command_ring.push(trb.into_raw());
+
+    // for mut p in controller.iter() {
+    //     if p.is_connected(&controller) {
+    //         println!("Port {} is connected", p.number);
+    //         p.configure(&mut controller);
+    //     }
+    // }
 
     write_cursor(frame_buffer);
 
