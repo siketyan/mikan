@@ -73,7 +73,8 @@ boot: build aavmf
 		-device ramfb \
 		-device qemu-xhci \
 		-device usb-mouse \
-		-trace 'usb_*,file=usb.log'
+		-trace 'usb_*,file=usb.log' \
+		-trace 'xhci_*,file=usb.log'
 
 .PHONY: reboot
 reboot:

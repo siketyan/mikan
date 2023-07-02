@@ -9,7 +9,9 @@ use accessor::marker::ReadWrite;
 use accessor::Mapper;
 use once_cell::unsync::OnceCell;
 use xhci::extended_capabilities::List;
+use xhci::registers::doorbell;
 use xhci::registers::runtime::Interrupter;
+use xhci::ring::trb::command::EnableSlot;
 use xhci::{ExtendedCapability, Registers};
 
 use crate::println;
@@ -84,6 +86,31 @@ impl Port {
             .portsc
             .port_reset()
         {}
+    }
+
+    pub(crate) fn enable_slot(&mut self, controller: &mut Controller) {
+        controller
+            .registers
+            .port_register_set
+            .update_volatile_at(self.number, |r| {
+                r.portsc.clear_port_reset_change();
+            });
+
+        controller.command_ring().push(EnableSlot::new().into_raw());
+
+        // TODO: Doorbell
+        let mut doorbell = unsafe {
+            doorbell::Register::new(
+                controller.base,
+                &controller.registers.capability,
+                MapperImpl,
+            )
+        };
+
+        doorbell.update_volatile_at(0, |r| {
+            r.set_doorbell_target(0);
+            r.set_doorbell_stream_id(0);
+        })
     }
 }
 

@@ -177,15 +177,16 @@ extern "C" fn kernel_main(args: KernelArgs) -> ! {
     let mut event_ring = controller.ring();
     controller.run();
 
-    let trb = Noop::new();
-    command_ring.push(trb.into_raw());
+    for mut p in controller.iter() {
+        if p.is_connected(&controller) {
+            println!("Port {} is connected", p.number);
+            // p.configure(&mut controller);
+            p.enable_slot(&mut controller);
 
-    // for mut p in controller.iter() {
-    //     if p.is_connected(&controller) {
-    //         println!("Port {} is connected", p.number);
-    //         p.configure(&mut controller);
-    //     }
-    // }
+            let trb = Noop::new();
+            command_ring.push(trb.into_raw());
+        }
+    }
 
     write_cursor(frame_buffer);
 
