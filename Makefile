@@ -64,13 +64,18 @@ rebuild:
 .PHONY: boot
 boot: build aavmf
 	qemu-system-aarch64 \
+		-s -S \
 		-machine virt \
 		-cpu cortex-a57 \
 		-m 512 \
 		-bios ./aavmf/QEMU_EFI.fd \
 		-drive 'if=virtio,file=./disk.img,format=raw' \
 		-device ramfb \
-		-monitor stdio
+		-device qemu-xhci \
+		-device usb-mouse \
+		-d guest_errors \
+		-trace 'usb_*,file=usb.log' \
+		-trace 'xhci_*,file=usb.log'
 
 .PHONY: reboot
 reboot:

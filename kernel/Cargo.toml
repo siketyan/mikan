@@ -10,7 +10,12 @@ name = "kernel"
 path = "src/main.rs"
 
 [dependencies]
-aarch64 = "0.0.7"
+aarch64 = "0.0.10"
+accessor = "0.3.3"
+const-str = "0.5.3"
+num-traits = { version = "0.2.15", default-features = false }
+once_cell = { version = "1.17", default-features = false }
+xhci = "0.9.1"
 
 [dependencies.mikan-core]
 path = "../core"
